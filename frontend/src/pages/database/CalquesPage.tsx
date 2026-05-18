@@ -520,7 +520,7 @@ function SiteRow({ site, canWrite }: { site: Site; canWrite: boolean }) {
               {/* col5: icône SVG du calque */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {c.icone_public_url
-                  ? <ColoredSvgSmall url={c.icone_public_url} color={c.couleur || undefined} size={28} />
+                  ? <ColoredSvgSmall url={c.icone_public_url} color={c.icone_path ? (c.couleur || undefined) : (c.couleur || '#378ADD')} size={28} />
                   : null}
               </div>
               {/* col6: description */}

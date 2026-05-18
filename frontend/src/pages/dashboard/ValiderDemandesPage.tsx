@@ -1353,7 +1353,7 @@ function VoirEntityModal({ pv, onClose }: { pv: PourValidation; onClose: () => v
                   )}
                   {c.icone_public_url && (
                     <InfoRow label="Icône"
-                      value={<ColoredSvgSmall url={c.icone_public_url} color={c.couleur} size={28} />} />
+                      value={<ColoredSvgSmall url={c.icone_public_url} color={c.icone_path ? (c.couleur || undefined) : (c.couleur || '#378ADD')} size={28} />} />
                   )}
                 </>;
               })()}

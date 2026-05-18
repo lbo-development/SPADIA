@@ -831,7 +831,7 @@ function PlanRow({ plan, canWrite, onEdit, onDelete, onUploadSvg }: {
                 {/* col5: ICÔNE */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {c.icone_public_url
-                    ? <ColoredSvgSmall url={c.icone_public_url} color={c.couleur || undefined} size={30} />
+                    ? <ColoredSvgSmall url={c.icone_public_url} color={c.icone_path ? (c.couleur || undefined) : (c.couleur || '#378ADD')} size={30} />
                     : null}
                 </div>
                 {/* col6: DESCRIPTION */}
