@@ -36,6 +36,7 @@ export type FichierPdf = {
   order: number;
   description: string | null;
   niveau_accreditation: number;
+  statut: string;
   storage_path: string;
   storage_public_url: string | null;
   version: number;
