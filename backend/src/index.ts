@@ -13,7 +13,23 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const isProd = process.env.NODE_ENV === 'production';
 
-app.use(helmet());
+const supabaseHost = process.env.SUPABASE_URL || 'https://*.supabase.co';
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc:  ["'self'"],
+      scriptSrc:   ["'self'"],
+      styleSrc:    ["'self'", "'unsafe-inline'"],
+      fontSrc:     ["'self'", 'data:'],
+      imgSrc:      ["'self'", 'data:', 'blob:', supabaseHost],
+      mediaSrc:    ["'self'", supabaseHost],
+      frameSrc:    ["'self'", supabaseHost],
+      objectSrc:   ["'self'", supabaseHost],
+      connectSrc:  ["'self'", supabaseHost],
+    },
+  },
+}));
 app.use(cors({
   origin: isProd ? false : (process.env.FRONTEND_URL || 'http://localhost:5173'),
   credentials: true,
