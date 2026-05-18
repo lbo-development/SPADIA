@@ -69,4 +69,6 @@ export async function authMiddleware(
 
   req.user = { id: userId, role: profile.role, niveau_accreditation: profile.niveau_accreditation };
   next();
+
+  
 }
