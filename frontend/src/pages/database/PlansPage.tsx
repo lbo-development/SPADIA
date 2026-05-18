@@ -440,6 +440,7 @@ function CalqueModal({ initial, planId, planNom, onSave, onClose }: {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.nom.trim()) { setErr('Le nom est requis.'); return; }
+    if (!form.owner_id)   { setErr('Le propriétaire est requis.'); return; }
     setSaving(true); setErr('');
     const validProps = propsList.filter(p => p.key.trim());
     const userMap = Object.fromEntries(validProps.map(p => [p.key.trim(), p.defaultVal || null]));
@@ -480,13 +481,13 @@ function CalqueModal({ initial, planId, planNom, onSave, onClose }: {
             <textarea value={form.description} onChange={set('description')} style={{ ...inp, minHeight: 60, resize: 'vertical' }} />
           </div>
           <div>
-            <label style={{ fontSize: 12, color: C.muted, display: 'block', marginBottom: 5 }}>Propriétaire</label>
+            <label style={{ fontSize: 12, color: C.muted, display: 'block', marginBottom: 5 }}>Propriétaire <span style={{ color: C.danger }}>*</span></label>
             <select
               value={form.owner_id ?? ''}
               onChange={e => setForm(f => ({ ...f, owner_id: e.target.value || null }))}
-              style={{ ...inp, height: 36, cursor: 'pointer' }}
+              style={{ ...inp, height: 36, cursor: 'pointer', borderColor: !form.owner_id ? C.danger + '88' : undefined }}
             >
-              <option value="">— Aucun —</option>
+              <option value="">— Sélectionner un propriétaire —</option>
               {users.map(u => <option key={u.id} value={u.id}>{u.nom}</option>)}
             </select>
           </div>
