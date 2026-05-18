@@ -92,7 +92,11 @@ function ColoredSvgSmall({ url, color, size = 28 }: { url: string; color?: strin
   useEffect(() => {
     if (!url) { setRaw(''); return; }
     let live = true;
-    fetch(url).then(r => r.ok ? r.text() : '').then(t => { if (live) setRaw(t); }).catch(() => { if (live) setRaw(''); });
+    const load = (src: string) => fetch(src).then(r => r.ok ? r.text() : null);
+    load(url)
+      .then(t => t ?? load('/defmarker.svg'))
+      .then(t => { if (live) setRaw(t ?? ''); })
+      .catch(() => { if (live) setRaw(''); });
     return () => { live = false; };
   }, [url]);
   const html = useMemo(() => {

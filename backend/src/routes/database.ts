@@ -372,7 +372,7 @@ function flattenCalque(row: Record<string, unknown>): Record<string, unknown> {
     plan_nom:         plan?.nom ?? '',
     owner_nom:        (owner      as { nom?: string } | null)?.nom ?? '',
     validateur_nom:   (validateur as { nom?: string } | null)?.nom ?? '',
-    icone_public_url: iPath ? supabaseAdmin.storage.from('Documents').getPublicUrl(iPath).data.publicUrl : null,
+    icone_public_url: iPath ? supabaseAdmin.storage.from('Documents').getPublicUrl(iPath).data.publicUrl : '/defmarker.svg',
   };
 }
 
