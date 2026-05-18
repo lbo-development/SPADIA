@@ -25,7 +25,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
 
   const { data: profile, error: profileError } = await supabase
     .from('user_profiles')
-    .select('id, role, niveau_accreditation, nom, email, last_context, actif')
+    .select('id, role, niveau_accreditation, nom, email, avatar_url, last_context, actif')
     .eq('id', userId)
     .single();
 
@@ -63,6 +63,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
       email: profile.email,
       role: profile.role,
       niveau_accreditation: profile.niveau_accreditation,
+      avatar_url: profile.avatar_url ?? null,
       last_context: profile.last_context,
     },
   });

@@ -1,5 +1,5 @@
 export type Role = 'Admin_app' | 'Admin_data' | 'User' | 'Viewer';
-export type Statut = 'en_attente' | 'a_completer' | 'valide' | 'rejete';
+export type Statut = 'En attente' | 'A compléter' | 'Validé' | 'Rejeté';
 
 export interface ApiError {
   error: {

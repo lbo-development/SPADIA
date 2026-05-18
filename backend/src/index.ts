@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import authRouter from './routes/auth';
 import dashboardRouter from './routes/dashboard';
+import databaseRouter from './routes/database';
 
 dotenv.config();
 
@@ -23,6 +24,7 @@ app.get('/api/v1/health', (_req, res) => {
 
 app.use('/api/v1/auth',      authRouter);
 app.use('/api/v1/dashboard', dashboardRouter);
+app.use('/api/v1/database',  databaseRouter);
 
 app.listen(PORT, () => {
   console.log(`✅ SPADIA backend démarré sur http://localhost:${PORT}`);

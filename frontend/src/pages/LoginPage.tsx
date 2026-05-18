@@ -13,7 +13,7 @@ export default function LoginPage() {
 
   const sessionMessage = searchParams.get('reason');
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     try {
@@ -33,10 +33,15 @@ export default function LoginPage() {
       <main style={s.main}>
         <header style={s.header}>
           <div style={s.logoWrap}>
-            <span style={{ fontSize: 22, color: '#378ADD' }}>◈</span>
+            <img src="/logos-DBo.png" alt="Logo" style={{ height: 36, width: 'auto', objectFit: 'contain', flexShrink: 0 }} />
             <span style={s.logoText}>SPADIA</span>
           </div>
-          <p style={s.tagline}>Gestion cartographique — Sites industriels</p>
+          <p style={s.tagline}>
+            <span style={s.taglineUp}>S</span>ystème{' '}
+            <span style={s.taglineUp}>PA</span>rtagé de{' '}
+            <span style={s.taglineUp}>DI</span>gitalisation des{' '}
+            <span style={s.taglineUp}>A</span>ssets
+          </p>
         </header>
 
         <div style={s.card}>
@@ -97,10 +102,11 @@ const s: Record<string, React.CSSProperties> = {
   grid: { position: 'absolute', inset: 0, backgroundImage: `linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)`, backgroundSize: '48px 48px', pointerEvents: 'none' },
   accentBar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: `linear-gradient(180deg, transparent, ${C.primary} 30%, ${C.accent} 70%, transparent)`, pointerEvents: 'none' },
   main: { position: 'relative', zIndex: 1, width: '100%', maxWidth: 400, padding: '24px 16px', display: 'flex', flexDirection: 'column', gap: 24 },
-  header: { display: 'flex', flexDirection: 'column', gap: 6 },
+  header: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 },
   logoWrap: { display: 'flex', alignItems: 'center', gap: 10 },
   logoText: { fontSize: 26, fontWeight: 700, color: C.text, letterSpacing: '0.12em' },
-  tagline: { fontSize: 12, color: C.muted, margin: 0, paddingLeft: 32 },
+  tagline:    { fontSize: 12, color: C.muted, margin: 0, textAlign: 'center' },
+  taglineUp:  { fontSize: 13.5, fontWeight: 700, color: '#2D6A27' },
   card: { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: '28px 28px 24px', display: 'flex', flexDirection: 'column', gap: 20 },
   sessionBanner: { background: '#241C0A', border: '1px solid #C9860A44', borderRadius: 6, padding: '10px 12px', fontSize: 12, color: '#C9860A' },
   cardTitle: { margin: 0, fontSize: 18, fontWeight: 600, color: C.text },

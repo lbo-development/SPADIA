@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
-import { apiClient } from '@/api/client';
+import { apiClient, setTokens, clearTokens } from '@/api/client';
 import type { UserProfile } from '@/types';
 
 interface LoginResponse {
@@ -7,10 +7,6 @@ interface LoginResponse {
   session_token: string;
   user: UserProfile;
 }
-
-const KEY_JWT     = 'spadia_jwt';
-const KEY_SESSION = 'spadia_session_token';
-const KEY_USER    = 'spadia_user';
 
 interface AuthContextValue {
   user: UserProfile | null;
@@ -23,26 +19,15 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<UserProfile | null>(() => {
-    try {
-      const raw = sessionStorage.getItem(KEY_USER);
-      return raw ? JSON.parse(raw) : null;
-    } catch { return null; }
-  });
-
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() =>
-    Boolean(sessionStorage.getItem(KEY_JWT) && sessionStorage.getItem(KEY_SESSION))
-  );
-
-  const [loading, setLoading] = useState(false);
+  const [user, setUser]                   = useState<UserProfile | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading]             = useState(false);
 
   const login = useCallback(async (email: string, password: string): Promise<UserProfile> => {
     setLoading(true);
     try {
       const { data } = await apiClient.post<LoginResponse>('/auth/login', { email, password });
-      sessionStorage.setItem(KEY_JWT,     data.jwt);
-      sessionStorage.setItem(KEY_SESSION, data.session_token);
-      sessionStorage.setItem(KEY_USER,    JSON.stringify(data.user));
+      setTokens(data.jwt, data.session_token);
       setUser(data.user);
       setIsAuthenticated(true);
       return data.user;
@@ -53,9 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     try { await apiClient.post('/auth/logout'); } catch { /* nettoyage */ }
-    sessionStorage.removeItem(KEY_JWT);
-    sessionStorage.removeItem(KEY_SESSION);
-    sessionStorage.removeItem(KEY_USER);
+    clearTokens();
     setUser(null);
     setIsAuthenticated(false);
   }, []);

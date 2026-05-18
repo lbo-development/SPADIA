@@ -6,10 +6,10 @@ import { ROLES } from '@/constants/roles';
 
 export default function DataAccessPage() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const role = user?.role ?? '';
 
-  const [stats, setStats]             = useState<DashboardStats | null>(null);
+  const [stats, setStats]               = useState<DashboardStats | null>(null);
   const [quickAccess, setQuickAccess] = useState<QuickAccessData | null>(null);
   const [loading, setLoading]         = useState(true);
   const [selSite, setSelSite]         = useState('');
@@ -34,20 +34,8 @@ export default function DataAccessPage() {
   const isUser      = role === ROLES.USER;
   const total       = stats ? Object.values(stats.pending).reduce((a, b) => a + b, 0) : 0;
 
-  async function handleLogout() { await logout(); navigate('/login'); }
-
   return (
     <div style={s.root}>
-      {/* Navbar */}
-      <nav style={s.nav}>
-        <span style={s.logoMark}>◈</span>
-        <span style={s.logoText}>SPADIA</span>
-        <div style={{ flex: 1 }} />
-        <span style={s.roleTag}>{user?.role}</span>
-        <span style={s.userName}>{user?.nom}</span>
-        <button style={s.logoutBtn} onClick={handleLogout}>Déconnexion</button>
-      </nav>
-
       <main style={s.main}>
         {/* En-tête */}
         <div style={s.pageHeader}>
@@ -153,8 +141,7 @@ const s: Record<string, React.CSSProperties> = {
   nav: { height: 48, background: C.bg, borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 12, padding: '0 16px', position: 'sticky', top: 0, zIndex: 100 },
   logoMark: { fontSize: 16, color: C.accent },
   logoText: { fontSize: 14, fontWeight: 700, color: C.text, letterSpacing: '0.1em' },
-  roleTag: { fontSize: 11, color: C.muted, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 4, padding: '2px 8px' },
-  userName: { fontSize: 12, color: C.muted },
+  dbBtn:     { height: 28, padding: '0 12px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 5, cursor: 'pointer', fontSize: 11, color: C.accent, fontWeight: 500 },
   logoutBtn: { height: 28, padding: '0 12px', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 5, cursor: 'pointer', fontSize: 11, color: C.muted },
   main: { maxWidth: 1100, margin: '0 auto', padding: '28px 24px' },
   pageHeader: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 },
