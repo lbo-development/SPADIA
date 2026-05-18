@@ -31,7 +31,7 @@ app.use('/api/v1/database',  databaseRouter);
 if (isProd) {
   const staticPath = path.join(__dirname, '..', 'public');
   app.use(express.static(staticPath));
-  app.get('*', (_req, res) => {
+  app.get('/{*path}', (_req, res) => {
     res.sendFile(path.join(staticPath, 'index.html'));
   });
 }
