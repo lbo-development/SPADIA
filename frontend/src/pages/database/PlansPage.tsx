@@ -518,7 +518,7 @@ function CalqueModal({ initial, planId, planNom, onSave, onClose }: {
               </div>
             </div>
           </div>
-          {/* Accréditation */}
+          {/* Accréditation + Zoom mini + Zoom maxi */}
           <div style={{ display: 'flex', gap: 12 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <label style={{ fontSize: 12, color: C.muted, display: 'block', marginBottom: 5 }}>Accréditation (0–3)</label>
@@ -539,9 +539,6 @@ function CalqueModal({ initial, planId, planNom, onSave, onClose }: {
                 >+</button>
               </div>
             </div>
-          </div>
-          {/* Ligne 2 : Zoom mini + Zoom maxi */}
-          <div style={{ display: 'flex', gap: 12 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <label style={{ fontSize: 12, color: C.muted, display: 'block', marginBottom: 5 }}>Zoom mini</label>
               <div style={{ display: 'flex', alignItems: 'center', height: 36, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 7, overflow: 'hidden', boxSizing: 'border-box' }}>

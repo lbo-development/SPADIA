@@ -309,7 +309,7 @@ function CalqueGeoModal({ initial, siteId, siteNom, onSave, onClose }: {
             </div>
           </div>
 
-          {/* Accréditation */}
+          {/* Accréditation + Zoom mini + Zoom maxi */}
           <div style={{ display: 'flex', gap: 12 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <label style={{ fontSize: 12, color: C.muted, display: 'block', marginBottom: 5 }}>Accréditation (0–3)</label>
@@ -327,10 +327,6 @@ function CalqueGeoModal({ initial, siteId, siteNom, onSave, onClose }: {
                   onClick={() => setForm(f => ({ ...f, niveau_accreditation: Math.min(3, f.niveau_accreditation + 1) }))}>+</button>
               </div>
             </div>
-          </div>
-
-          {/* Zoom mini + maxi */}
-          <div style={{ display: 'flex', gap: 12 }}>
             {(['zoom_min', 'zoom_max'] as const).map(key => (
               <div key={key} style={{ flex: 1, minWidth: 0 }}>
                 <label style={{ fontSize: 12, color: C.muted, display: 'block', marginBottom: 5 }}>{key === 'zoom_min' ? 'Zoom mini' : 'Zoom maxi'}</label>
