@@ -319,7 +319,8 @@ function SidebarToggle({ open, onClick }: { open: boolean; onClick: () => void }
 export default function CartoPage() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const [avatarFailed, setAvatarFailed] = useState(false);
+  const [avatarFailed,    setAvatarFailed]    = useState(false);
+  const [viewportHeight,  setViewportHeight]  = useState(() => `${window.innerHeight}px`);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef          = useRef<L.Map | null>(null);
@@ -811,6 +812,16 @@ export default function CartoPage() {
   }
 
   useEffect(() => {
+    const update = () => setViewportHeight(`${window.innerHeight}px`);
+    window.addEventListener('resize', update);
+    window.addEventListener('orientationchange', update);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('orientationchange', update);
+    };
+  }, []);
+
+  useEffect(() => {
     if (mapRef.current || !mapContainerRef.current) return;
 
     mapRef.current = L.map(mapContainerRef.current, {
@@ -826,6 +837,8 @@ export default function CartoPage() {
 
     mapRef.current.on('zoomend', () => setZoom(mapRef.current!.getZoom()));
 
+    setTimeout(() => mapRef.current?.invalidateSize(), 0);
+
     return () => {
       mapRef.current?.remove();
       mapRef.current     = null;
@@ -834,7 +847,7 @@ export default function CartoPage() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div style={{ height: '100vh', background: C.bg, fontFamily: '"Segoe UI", sans-serif', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{ height: viewportHeight, background: C.bg, fontFamily: '"Segoe UI", sans-serif', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
       {/* ── HEADER ── */}
       <nav style={{ height: 48, background: C.bg, borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 10, padding: '0 16px', flexShrink: 0, zIndex: 100 }}>
@@ -905,7 +918,7 @@ export default function CartoPage() {
 
         {/* MAP */}
         <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-          <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
+          <div ref={mapContainerRef} style={{ position: 'absolute', inset: 0 }} />
 
           {/* Plan SVG overlay — Leaflet CRS.Simple */}
           {planViewer && (
