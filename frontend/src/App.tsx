@@ -3,7 +3,7 @@ import { useAuth } from '@/context/AuthContext';
 import { ROLES } from '@/constants/roles';
 import LoginPage             from '@/pages/LoginPage';
 import DataAccessPage        from '@/pages/DataAccessPage';
-import DesktopPage           from '@/pages/DesktopPage';
+import CartoPage             from '@/pages/CartoPage';
 import DatabaseLayout        from '@/pages/database/DatabaseLayout';
 import SitesPage             from '@/pages/database/SitesPage';
 import InstallationsPage     from '@/pages/database/InstallationsPage';
@@ -42,7 +42,7 @@ export default function App() {
       } />
 
       <Route path="/carte" element={
-        <ProtectedRoute><DesktopPage /></ProtectedRoute>
+        <ProtectedRoute><CartoPage /></ProtectedRoute>
       } />
 
       <Route path="/database" element={

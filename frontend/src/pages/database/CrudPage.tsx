@@ -183,6 +183,7 @@ export default function CrudPage({ entity, title, columns, fields, canWrite, can
   const [reorderModal, setReorderModal] = useState(false);
   const [reorderList, setReorderList]   = useState<Row[]>([]);
   const [reordering, setReordering]     = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [dragOverIdx, setDragOverIdx]   = useState<number | null>(null);
   const fileInputRef    = useRef<HTMLInputElement>(null);
   const avatarFieldKey  = useRef<string>('');
@@ -499,9 +500,42 @@ setRows(data as Row[]);
       }
 
       // ── Text / email / password ──────────────────────────────────────────
+      if (f.type === 'password') {
+        return (
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={String(form[f.key] ?? '')}
+              onChange={e => { setForm(v => ({ ...v, [f.key]: e.target.value })); clearFieldError(f.key); }}
+              style={{ ...sInput, ...(hasError ? s.inputError : {}), paddingRight: 36, width: '100%' }}
+              required={f.required}
+              autoComplete="new-password"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(v => !v)}
+              title={showPassword ? 'Masquer' : 'Afficher'}
+              style={{ position: 'absolute', right: 8, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#6B7A99', display: 'flex', alignItems: 'center' }}
+            >
+              {showPassword ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                  <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                  <line x1="1" y1="1" x2="23" y2="23"/>
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+              )}
+            </button>
+          </div>
+        );
+      }
       return (
         <input
-          type={f.type === 'email' ? 'email' : f.type === 'password' ? 'password' : 'text'}
+          type={f.type === 'email' ? 'email' : 'text'}
           value={String(form[f.key] ?? '')}
           onChange={e => { setForm(v => ({ ...v, [f.key]: e.target.value })); clearFieldError(f.key); }}
           style={{ ...sInput, ...(hasError ? s.inputError : {}) }}
@@ -548,6 +582,7 @@ setRows(data as Row[]);
 
   return (
     <div style={s.root}>
+      <div style={s.stickyTop}>
       {/* En-tête */}
       <div style={s.header}>
         <h2 style={s.title}>
@@ -579,7 +614,9 @@ setRows(data as Row[]);
 
       {/* Slot filtre optionnel */}
       {filterSlot && <div style={s.filterSlot}>{filterSlot}</div>}
+      </div>
 
+      <div style={s.scrollArea}>
       {/* Table */}
       {loading ? (
         <div style={s.loadWrap}><div style={s.loadSpinner} /></div>
@@ -640,16 +677,17 @@ setRows(data as Row[]);
           </table>
         </div>
       )}
+      </div>
 
       {/* Modale création / édition */}
       {modal && (
         <Modal
           title={modal.mode === 'create' ? `Ajouter — ${title}` : `Modifier — ${title}`}
-          onClose={() => setModal(null)}
+          onClose={() => { setModal(null); setShowPassword(false); }}
           maxWidth={560}
           footer={
             <div style={s.modalFoot}>
-              <button style={s.cancelBtn} onClick={() => setModal(null)} disabled={saving}>Annuler</button>
+              <button style={s.cancelBtn} onClick={() => { setModal(null); setShowPassword(false); }} disabled={saving}>Annuler</button>
               <button style={saving ? s.saveBtnOff : s.saveBtn} onClick={handleSave} disabled={saving}>
                 {saving ? <><SpinnerIcon /> Sauvegarde…</> : 'Sauvegarder'}
               </button>
@@ -739,7 +777,9 @@ const C = {
 
 const s: Record<string, React.CSSProperties> = {
   // ── Page ──
-  root:   { padding: '28px 32px', height: '100%' },
+  root:      { height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' },
+  stickyTop: { flexShrink: 0, padding: '28px 32px 0', background: C.bg },
+  scrollArea:{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '0 32px 28px', boxSizing: 'border-box' as const },
   header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
   title:  { margin: 0, fontSize: 18, fontWeight: 600, color: C.text, display: 'flex', alignItems: 'center', gap: 12 },
   count:  { fontSize: 12, fontWeight: 400, color: C.muted, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 4, padding: '2px 8px' },
@@ -756,9 +796,9 @@ const s: Record<string, React.CSSProperties> = {
   // ── Table ──
   loadWrap:    { display: 'flex', justifyContent: 'center', padding: 60 },
   loadSpinner: { width: 24, height: 24, border: '2px solid #232B3E', borderTopColor: C.accent, borderRadius: '50%', animation: 'spin 0.7s linear infinite' },
-  tableWrap:   { overflowX: 'auto' as const, borderRadius: 10, border: `1px solid ${C.border}` },
+  tableWrap:   { flex: 1, overflowX: 'auto' as const, overflowY: 'auto' as const, borderRadius: 10, border: `1px solid ${C.border}` },
   table:       { width: '100%', borderCollapse: 'collapse' as const, fontSize: 13 },
-  th:          { padding: '10px 14px', background: '#1C2333', color: C.muted, fontWeight: 600, fontSize: 11, textTransform: 'uppercase' as const, letterSpacing: '0.06em', textAlign: 'left' as const, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' as const },
+  th:          { padding: '10px 14px', background: '#1C2333', color: C.muted, fontWeight: 600, fontSize: 11, textTransform: 'uppercase' as const, letterSpacing: '0.06em', textAlign: 'left' as const, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' as const, position: 'sticky' as const, top: 0, zIndex: 2 },
   thSortable:  { cursor: 'pointer', userSelect: 'none' as const },
   thActive:    { color: C.accent },
   td:          { padding: '10px 14px', color: C.text, borderBottom: `1px solid ${C.border}`, maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const },

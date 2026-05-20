@@ -1046,10 +1046,10 @@ export default function PlansPage() {
   const selDisabled = { ...sel, cursor: 'not-allowed' as const, opacity: 0.4 };
 
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, padding: '32px 40px', fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div style={{ height: '100%', background: C.bg, fontFamily: 'Inter, system-ui, sans-serif', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexShrink: 0, padding: '28px 40px 0' }}>
         <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: C.text }}>Plans SVG</h1>
         <div style={{ display: 'flex', gap: 8 }}>
           {canWrite && reorderable && (
@@ -1066,7 +1066,7 @@ export default function PlansPage() {
       </div>
 
       {/* Filter bar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20, flexWrap: 'wrap', flexShrink: 0, padding: '0 40px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 12, color: C.muted, fontWeight: 500 }}>Site</span>
           <select value={siteFilter} onChange={e => { setSiteFilter(e.target.value); setInstallFilter(''); }} style={sel}>
@@ -1084,9 +1084,9 @@ export default function PlansPage() {
       </div>
 
       {/* Tree */}
-      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'auto', flex: 1, margin: '0 40px 28px' }}>
         {/* Header */}
-        <div style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', padding: '0 12px', minHeight: 36, background: C.surface2, borderBottom: `1px solid ${C.border}` }}>
+        <div style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', padding: '0 12px', minHeight: 36, background: C.surface2, borderBottom: `1px solid ${C.border}`, position: 'sticky', top: 0, zIndex: 2 }}>
           <span />
           {(['Nom', 'Actif'] as const).map(label => (
             <span key={label} style={{ fontSize: 11, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</span>

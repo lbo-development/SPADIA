@@ -68,29 +68,6 @@ type Dossier = {
   updated_at: string;
 };
 
-const STATUT_LABELS: Record<string, string> = {
-  'En attente':  'En attente',
-  'A compléter': 'A compléter',
-  'Validé':      'Validé',
-  'Rejeté':      'Rejeté',
-};
-const STATUT_COLORS: Record<string, string> = {
-  'En attente':  '#8B1A1A',
-  'A compléter': '#C96A00',
-  'Validé':      '#2A7A4B',
-  'Rejeté':      '#6A3DB8',
-};
-
-// ── Statut badge ─────────────────────────────────────────────────────────────
-
-function StatutBadge({ statut }: { statut: string }) {
-  return (
-    <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: STATUT_COLORS[statut] + '22', color: STATUT_COLORS[statut] ?? C.muted, letterSpacing: 0.2 }}>
-      {STATUT_LABELS[statut] ?? statut}
-    </span>
-  );
-}
-
 // ── Grid layout ──────────────────────────────────────────────────────────────
 // col1: 48px (chevron+icon) | col2: 2fr NOM | col3: 160px SITE | col4: 150px INSTALL | col5: 1fr DESC | col6: 96px ACTIONS
 const GRID = '48px minmax(0,0.31fr) 72px 154px 180px minmax(0,1fr) 96px';
@@ -216,7 +193,7 @@ function DossierModal({
 
 // ── Fichier modal (edit) ──────────────────────────────────────────────────────
 
-type FichierFormData = { nom: string; description: string; statut: string; niveau_accreditation: number; is_uploadable: boolean };
+type FichierFormData = { nom: string; description: string; niveau_accreditation: number; is_uploadable: boolean };
 
 function FichierModal({ fichier, onSave, onClose }: {
   fichier: FichierPdf;
@@ -226,7 +203,6 @@ function FichierModal({ fichier, onSave, onClose }: {
   const [form, setForm] = useState<FichierFormData>({
     nom:                  fichier.nom,
     description:          fichier.description ?? '',
-    statut:               fichier.statut,
     niveau_accreditation: fichier.niveau_accreditation,
     is_uploadable:        fichier.is_uploadable,
   });
@@ -268,12 +244,6 @@ function FichierModal({ fichier, onSave, onClose }: {
             <textarea value={form.description} onChange={set('description')} style={{ ...inp, minHeight: 60, resize: 'vertical' }} />
           </div>
           <div style={{ display: 'flex', gap: 12 }}>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: 12, color: C.muted, display: 'block', marginBottom: 5 }}>Statut</label>
-              <select value={form.statut} onChange={set('statut')} style={{ ...inp, height: 36 }}>
-                {Object.entries(STATUT_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-              </select>
-            </div>
             <div style={{ flex: 1 }}>
               <label style={{ fontSize: 12, color: C.muted, display: 'block', marginBottom: 5 }}>Niveau d'accréditation (0-4)</label>
               <div style={{ display: 'flex', alignItems: 'center', height: 38, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 7, overflow: 'hidden' }}>
@@ -379,13 +349,7 @@ function FichierDetailsModal({ fichier, onClose }: { fichier: FichierPdf; onClos
           </span>
         </div>
 
-        {/* L5 — Statut */}
-        <div style={rowStyle}>
-          <span style={labelStyle}>Statut</span>
-          <div style={{ flex: 1 }}><StatutBadge statut={fichier.statut} /></div>
-        </div>
-
-        {/* L6 — Niveau accréditation + Téléchargeable */}
+        {/* L5 — Niveau accréditation + Téléchargeable */}
         <div style={rowStyle}>
           <span style={labelStyle} />
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 20 }}>
@@ -395,9 +359,9 @@ function FichierDetailsModal({ fichier, onClose }: { fichier: FichierPdf; onClos
               </span>
               <span style={{ fontSize: 12, color: C.muted }}>Niveau d'accréditation</span>
             </div>
-            {fichier.is_uploadable && (
-              <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: '#C96A0033', color: '#C96A00' }}>Téléchargeable</span>
-            )}
+            <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: fichier.is_uploadable ? '#C96A0033' : '#2D3A5288', color: fichier.is_uploadable ? '#C96A00' : C.muted }}>
+              {fichier.is_uploadable ? 'Téléchargeable' : 'Non téléchargeable'}
+            </span>
           </div>
         </div>
 
@@ -592,17 +556,17 @@ function DossierRow({
                 </div>
                 {/* col2: NOM fichier */}
                 <span style={{ fontSize: 12, color: '#B8A96A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 12 }}>{f.nom}</span>
-                {/* col3: statut */}
-                <span><StatutBadge statut={f.statut} /></span>
+                {/* col3: vide */}
+                <span />
                 {/* col4: niveau accréditation — pastille ronde */}
                 <div style={{ display: 'flex', justifyContent: 'center' }}>
                   <span title="Niveau d'accréditation" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', background: C.accent + '33', border: `1px solid ${C.accent}66`, fontSize: 11, fontWeight: 700, color: C.accent, cursor: 'default' }}>{f.niveau_accreditation}</span>
                 </div>
                 {/* col5: is_uploadable */}
                 <div style={{ display: 'flex', alignItems: 'center' }}>
-                  {f.is_uploadable && (
-                    <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 7px', borderRadius: 10, background: '#C96A0033', color: '#C96A00' }}>Téléchargeable</span>
-                  )}
+                  <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 7px', borderRadius: 10, background: f.is_uploadable ? '#C96A0033' : '#2D3A5288', color: f.is_uploadable ? '#C96A00' : C.muted }}>
+                    {f.is_uploadable ? 'Téléchargeable' : 'Non téléchargeable'}
+                  </span>
                 </div>
                 {/* col6: actions */}
                 <div style={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>

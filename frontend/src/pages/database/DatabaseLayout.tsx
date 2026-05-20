@@ -78,7 +78,7 @@ export default function DatabaseLayout() {
 
 const C = { bg: '#0E1117', surface: '#161B27', border: '#232B3E', primary: '#185FA5', accent: '#378ADD', text: '#E8EDF5', muted: '#6B7A99' };
 const s: Record<string, React.CSSProperties> = {
-  root:            { minHeight: '100vh', background: C.bg, fontFamily: '"Segoe UI", sans-serif', display: 'flex', flexDirection: 'column' },
+  root:            { height: '100vh', background: C.bg, fontFamily: '"Segoe UI", sans-serif', display: 'flex', flexDirection: 'column' },
   nav:             { height: 48, background: C.bg, borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 10, padding: '0 16px', position: 'sticky', top: 0, zIndex: 100, flexShrink: 0 },
   logoText:        { fontSize: 14, fontWeight: 700, color: C.text, letterSpacing: '0.1em' },
   separator:       { fontSize: 14, color: C.muted },
@@ -90,5 +90,5 @@ const s: Record<string, React.CSSProperties> = {
   sidebarLabel:    { fontSize: 10, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '0 16px', marginBottom: 8 },
   sidebarLink:       { display: 'block', padding: '8px 16px', fontSize: 13, color: C.muted, textDecoration: 'none', transition: 'color 0.15s, background 0.15s' },
   sidebarLinkActive: { color: C.accent, background: '#378ADD14', boxShadow: `inset 2px 0 0 ${C.accent}` },
-  content:         { flex: 1, overflowY: 'auto' as const },
+  content:         { flex: 1, overflow: 'hidden' },
 };

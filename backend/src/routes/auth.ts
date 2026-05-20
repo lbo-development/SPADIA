@@ -6,6 +6,19 @@ import { authMiddleware, AuthenticatedRequest } from '../middlewares/auth';
 const router = Router();
 const SESSION_DURATION_HOURS = parseInt(process.env.SESSION_DURATION_HOURS || '8', 10);
 
+router.get('/users', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('nom, email')
+      .order('nom', { ascending: true });
+    if (error) throw error;
+    res.json(data ?? []);
+  } catch {
+    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur lecture utilisateurs.', details: null } });
+  }
+});
+
 router.post('/login', async (req: Request, res: Response): Promise<void> => {
   const { email, password } = req.body;
 

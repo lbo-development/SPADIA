@@ -72,7 +72,7 @@ function ReorderIcon() {
 type PropRow = { key: string; defaultVal: string };
 const SYSTEM_PROPS = ['marker-color', 'marker-size'];
 
-const GRID = '44px minmax(0,0.5fr) 100px 52px 44px minmax(0,1fr) 110px';
+const GRID = '44px minmax(0,0.4fr) 130px 52px 44px minmax(0,1fr) 110px';
 
 // ── Badges ────────────────────────────────────────────────────────────────────
 
@@ -509,7 +509,7 @@ function SiteRow({ site, canWrite }: { site: Site; canWrite: boolean }) {
               {/* col2: nom */}
               <span style={{ fontSize: 12, color: '#8AB4D4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 12 }}>{c.nom}</span>
               {/* col3: propriétaire */}
-              <span><OwnerChip nom={c.owner_nom} /></span>
+              <span title={c.owner_nom || undefined}><OwnerChip nom={c.owner_nom} /></span>
               {/* col4: accréditation */}
               <div style={{ display: 'flex', justifyContent: 'center' }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', background: C.accent + '33', border: `1px solid ${C.accent}66`, fontSize: 11, fontWeight: 700, color: C.accent }}>{c.niveau_accreditation}</span>
@@ -521,7 +521,7 @@ function SiteRow({ site, canWrite }: { site: Site; canWrite: boolean }) {
                   : null}
               </div>
               {/* col6: description */}
-              <span style={{ fontSize: 12, color: C.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingLeft: 16, paddingRight: 8 }}>
+              <span title={c.description || undefined} style={{ fontSize: 12, color: C.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingLeft: 16, paddingRight: 8 }}>
                 {c.description ? c.description.slice(0, 60) + (c.description.length > 60 ? '…' : '') : '—'}
               </span>
               {/* col7: actions */}
@@ -603,7 +603,7 @@ export default function CalquesPage() {
   useEffect(() => {
     setLoading(true);
     db.list('sites')
-      .then(({ data }) => setSites((data as Site[]).sort((a, b) => a.nom.localeCompare(b.nom, 'fr'))))
+      .then(({ data }) => setSites(data as Site[]))
       .catch(() => setSites([]))
       .finally(() => setLoading(false));
   }, []);

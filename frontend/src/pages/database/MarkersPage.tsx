@@ -344,49 +344,51 @@ export default function MarkersPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, padding: '32px 40px', fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div style={{ height: '100%', background: C.bg, display: 'flex', flexDirection: 'column', fontFamily: 'Inter, system-ui, sans-serif', overflow: 'hidden' }}>
 
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: C.text }}>Bibliothèque de markers</h1>
-        {canWrite && (
-          <button style={btn(C.accent)} onClick={() => setModal({ mode: 'create' })}>
-            <PlusIcon /> Nouveau marker
-          </button>
+      {/* Header figé */}
+      <div style={{ flexShrink: 0, padding: '28px 40px 16px', borderBottom: `1px solid ${C.border}`, background: C.bg }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: C.text }}>Bibliothèque de markers</h1>
+          {canWrite && (
+            <button style={btn(C.accent)} onClick={() => setModal({ mode: 'create' })}>
+              <PlusIcon /> Nouveau marker
+            </button>
+          )}
+        </div>
+        <div style={{ position: 'relative', maxWidth: 360 }}>
+          <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: C.muted, display: 'flex' }}><SearchIcon /></span>
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Rechercher par nom ou mot-clé…"
+            style={{ ...inp, paddingLeft: 32 }}
+          />
+        </div>
+      </div>
+
+      {/* Grid scrollable */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '24px 40px 32px' }}>
+        {loading && <div style={{ textAlign: 'center', color: C.muted, fontSize: 13, padding: 60 }}>Chargement…</div>}
+        {!loading && filtered.length === 0 && (
+          <div style={{ textAlign: 'center', color: C.muted, fontSize: 13, padding: 60 }}>
+            {search ? 'Aucun marker correspondant.' : 'Aucun marker. Cliquez sur « Nouveau marker » pour commencer.'}
+          </div>
+        )}
+        {!loading && filtered.length > 0 && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 12 }}>
+            {filtered.map(m => (
+              <MarkerCard
+                key={m.id}
+                marker={m}
+                canWrite={canWrite}
+                onEdit={() => setModal({ mode: 'edit', marker: m })}
+                onDelete={() => setDelTarget(m)}
+              />
+            ))}
+          </div>
         )}
       </div>
-
-      {/* Search */}
-      <div style={{ position: 'relative', marginBottom: 24, maxWidth: 360 }}>
-        <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: C.muted, display: 'flex' }}><SearchIcon /></span>
-        <input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Rechercher par nom ou mot-clé…"
-          style={{ ...inp, paddingLeft: 32 }}
-        />
-      </div>
-
-      {/* Grid */}
-      {loading && <div style={{ textAlign: 'center', color: C.muted, fontSize: 13, padding: 60 }}>Chargement…</div>}
-      {!loading && filtered.length === 0 && (
-        <div style={{ textAlign: 'center', color: C.muted, fontSize: 13, padding: 60 }}>
-          {search ? 'Aucun marker correspondant.' : 'Aucun marker. Cliquez sur « Nouveau marker » pour commencer.'}
-        </div>
-      )}
-      {!loading && filtered.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 12 }}>
-          {filtered.map(m => (
-            <MarkerCard
-              key={m.id}
-              marker={m}
-              canWrite={canWrite}
-              onEdit={() => setModal({ mode: 'edit', marker: m })}
-              onDelete={() => setDelTarget(m)}
-            />
-          ))}
-        </div>
-      )}
 
       {modal && (
         <MarkerModal

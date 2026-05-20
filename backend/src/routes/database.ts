@@ -1240,4 +1240,254 @@ router.post('/upload/avatar', authMiddleware, requireRole(adminApp),
   },
 );
 
+// ── Points ─────────────────────────────────────────────────────────────────
+
+router.get('/points', authMiddleware, requireRole(allRoles),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const { calque_id } = req.query;
+    if (!calque_id || typeof calque_id !== 'string') {
+      res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'calque_id requis.' } });
+      return;
+    }
+    try {
+      const { data, error } = await supabase.from('points').select('*').eq('calque_id', calque_id).order('created_at', { ascending: true });
+      if (error) throw error;
+      res.json(data ?? []);
+    } catch (err) {
+      console.error('[db/points GET]', err);
+      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur lecture points.', details: null } });
+    }
+  },
+);
+
+router.post('/points', authMiddleware, requireRole(adminAll),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const { data, error } = await supabase.from('points').insert(req.body).select('*').single();
+      if (error) throw error;
+      res.status(201).json(data);
+    } catch (err) {
+      console.error('[db/points POST]', err);
+      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur création point.', details: null } });
+    }
+  },
+);
+
+router.patch('/points/:id', authMiddleware, requireRole(adminAll),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const { data, error } = await supabase.from('points').update(req.body).eq('id', req.params.id).select('*').single();
+      if (error) throw error;
+      res.json(data);
+    } catch (err) {
+      console.error('[db/points PATCH]', err);
+      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur mise à jour point.', details: null } });
+    }
+  },
+);
+
+router.delete('/points/:id', authMiddleware, requireRole(adminAll),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      // Supprime les fichiers storage des photos
+      const { data: photos } = await supabase
+        .from('photosFichiersPoints').select('storage_path').eq('point_id', req.params.id);
+      if (photos && photos.length > 0) {
+        const paths = (photos as { storage_path: string }[]).map(p => p.storage_path).filter(Boolean);
+        if (paths.length > 0) await supabaseAdmin.storage.from('Documents').remove(paths);
+      }
+
+      // Supprime les enregistrements photos puis le point
+      await supabase.from('photosFichiersPoints').delete().eq('point_id', req.params.id);
+      const { error } = await supabase.from('points').delete().eq('id', req.params.id);
+      if (error) throw error;
+      res.status(204).send();
+    } catch (err) {
+      console.error('[db/points DELETE]', err);
+      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur suppression point.', details: null } });
+    }
+  },
+);
+
+// ── Photos / Fichiers liés aux points ────────────────────────────────────────
+
+const PHOTO_SELECT = `id, point_id, nom, "order", description, niveau_accreditation, storage_path, file_type, statut, created_at, updated_at`;
+
+const uploadPhoto = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
+
+const uploadFichierPoint = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 },
+});
+
+router.post('/upload/photo', authMiddleware, requireRole(adminAll),
+  uploadPhoto.single('file'),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    if (!req.file) {
+      res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Aucun fichier fourni.' } });
+      return;
+    }
+    const { point_id, nom } = req.body as { point_id?: string; nom?: string };
+    if (!point_id) {
+      res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'point_id requis.' } });
+      return;
+    }
+    if (!req.file.mimetype.startsWith('image/')) {
+      res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Seules les images sont acceptées.' } });
+      return;
+    }
+    const rawExt = req.file.originalname.split('.').pop()?.toLowerCase() ?? 'jpg';
+    const ext = ['jpg','jpeg','png','gif','webp','avif','svg'].includes(rawExt) ? rawExt : 'jpg';
+    const storagePath = `Photos/${point_id}/${Date.now()}.${ext}`;
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from('Documents')
+      .upload(storagePath, req.file.buffer, { contentType: req.file.mimetype, upsert: false });
+    if (uploadError) {
+      console.error('[upload/photo]', uploadError);
+      res.status(500).json({ error: { code: 'STORAGE_ERROR', message: "Erreur upload image." } });
+      return;
+    }
+    const { data: { publicUrl } } = supabaseAdmin.storage.from('Documents').getPublicUrl(storagePath);
+    const { data, error } = await supabase
+      .from('photosFichiersPoints')
+      .insert({
+        point_id,
+        nom:                  nom || req.file.originalname,
+        storage_path:         storagePath,
+        file_type:            'image',
+        statut:               'Validé',
+        niveau_accreditation: 4,
+        validateur_id:        req.user!.id,
+      })
+      .select(PHOTO_SELECT)
+      .single();
+    if (error) {
+      console.error('[upload/photo DB]', error);
+      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur création photo.' } });
+      return;
+    }
+    res.status(201).json({ ...(data as Record<string, unknown>), public_url: publicUrl });
+  },
+);
+
+router.get('/photos', authMiddleware, requireRole(allRoles),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const { point_id } = req.query;
+    if (!point_id || typeof point_id !== 'string') {
+      res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'point_id requis.' } });
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from('photosFichiersPoints')
+        .select(PHOTO_SELECT)
+        .eq('point_id', point_id)
+        .order('order', { ascending: true });
+      if (error) throw error;
+      const rows = (data ?? []).map((row: Record<string, unknown>) => ({
+        ...row,
+        public_url: row.storage_path
+          ? supabaseAdmin.storage.from('Documents').getPublicUrl(row.storage_path as string).data.publicUrl
+          : null,
+      }));
+      res.json(rows);
+    } catch (err) {
+      console.error('[db/photos GET]', err);
+      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur lecture photos.', details: null } });
+    }
+  },
+);
+
+router.post('/upload/fichier_point', authMiddleware, requireRole(adminAll),
+  uploadFichierPoint.single('file'),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    if (!req.file) {
+      res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Aucun fichier fourni.' } });
+      return;
+    }
+    const { point_id, nom } = req.body as { point_id?: string; nom?: string };
+    if (!point_id) {
+      res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'point_id requis.' } });
+      return;
+    }
+    if (req.file.mimetype !== 'application/pdf') {
+      res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Seul le format PDF est accepté.' } });
+      return;
+    }
+    const storagePath = `FichiersPoints/${point_id}/${Date.now()}.pdf`;
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from('Documents')
+      .upload(storagePath, req.file.buffer, { contentType: 'application/pdf', upsert: false });
+    if (uploadError) {
+      console.error('[upload/fichier_point]', uploadError);
+      res.status(500).json({ error: { code: 'STORAGE_ERROR', message: 'Erreur upload PDF.' } });
+      return;
+    }
+    const { data: { publicUrl } } = supabaseAdmin.storage.from('Documents').getPublicUrl(storagePath);
+    const { data, error } = await supabase
+      .from('photosFichiersPoints')
+      .insert({
+        point_id,
+        nom:                  nom || req.file.originalname,
+        storage_path:         storagePath,
+        file_type:            'pdf',
+        statut:               'Validé',
+        niveau_accreditation: 4,
+        validateur_id:        req.user!.id,
+      })
+      .select(PHOTO_SELECT)
+      .single();
+    if (error) {
+      console.error('[upload/fichier_point DB]', error);
+      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur création fichier.' } });
+      return;
+    }
+    res.status(201).json({ ...(data as Record<string, unknown>), public_url: publicUrl });
+  },
+);
+
+router.patch('/photos/:id', authMiddleware, requireRole(adminAll),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const { data, error } = await supabase
+        .from('photosFichiersPoints')
+        .update(req.body)
+        .eq('id', req.params.id)
+        .select(PHOTO_SELECT)
+        .single();
+      if (error) throw error;
+      const row = data as Record<string, unknown>;
+      res.json({
+        ...row,
+        public_url: row.storage_path
+          ? supabaseAdmin.storage.from('Documents').getPublicUrl(row.storage_path as string).data.publicUrl
+          : null,
+      });
+    } catch (err) {
+      console.error('[db/photos PATCH]', err);
+      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur mise à jour photo.', details: null } });
+    }
+  },
+);
+
+router.delete('/photos/:id', authMiddleware, requireRole(adminAll),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const { data: photo } = await supabase
+        .from('photosFichiersPoints').select('storage_path').eq('id', req.params.id).single();
+      const storagePath = (photo as { storage_path?: string } | null)?.storage_path;
+      const { error } = await supabase.from('photosFichiersPoints').delete().eq('id', req.params.id);
+      if (error) throw error;
+      if (storagePath) await supabaseAdmin.storage.from('Documents').remove([storagePath]);
+      res.status(204).send();
+    } catch (err) {
+      console.error('[db/photos DELETE]', err);
+      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur suppression photo.', details: null } });
+    }
+  },
+);
+
 export default router;

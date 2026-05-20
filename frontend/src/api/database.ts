@@ -36,7 +36,6 @@ export type FichierPdf = {
   order: number;
   description: string | null;
   niveau_accreditation: number;
-  statut: string;
   storage_path: string;
   storage_public_url: string | null;
   version: number;
@@ -111,6 +110,32 @@ export type PourValidation = {
   date_validation: string | null;
   commentaire_admin: string | null;
   id_valide: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Point = {
+  id: string;
+  calque_id: string;
+  nom: string;
+  coord_x_ou_lon: number;
+  coord_y_ou_lat: number;
+  champs: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Photo = {
+  id: string;
+  point_id: string;
+  nom: string;
+  order: number;
+  description: string | null;
+  niveau_accreditation: number;
+  storage_path: string;
+  public_url: string | null;
+  file_type: 'image' | 'pdf';
+  statut: 'En attente' | 'A compléter' | 'Validé' | 'Rejeté';
   created_at: string;
   updated_at: string;
 };
@@ -192,6 +217,40 @@ export const db = {
     apiClient.get<Plan>(`/database/plans/${id}`),
   getCalqueById: (id: string) =>
     apiClient.get<Calque>(`/database/calques/${id}`),
+
+  listPoints: (calqueId: string) =>
+    apiClient.get<Point[]>(`/database/points?calque_id=${encodeURIComponent(calqueId)}`),
+  listPhotos: (pointId: string) =>
+    apiClient.get<Photo[]>(`/database/photos?point_id=${encodeURIComponent(pointId)}`),
+  uploadPhoto: (file: File, pointId: string) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('point_id', pointId);
+    form.append('nom', file.name);
+    return apiClient.post<Photo>('/database/upload/photo', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  createPoint: (data: Record<string, unknown>) =>
+    apiClient.post<Point>('/database/points', data),
+  updatePoint: (id: string, data: Record<string, unknown>) =>
+    apiClient.patch<Point>(`/database/points/${id}`, data),
+  removePoint: (id: string) =>
+    apiClient.delete(`/database/points/${id}`),
+
+  removePhoto: (id: string) =>
+    apiClient.delete(`/database/photos/${id}`),
+  updatePhoto: (id: string, data: Record<string, unknown>) =>
+    apiClient.patch<Photo>(`/database/photos/${id}`, data),
+  uploadFichierPoint: (file: File, pointId: string) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('point_id', pointId);
+    form.append('nom', file.name);
+    return apiClient.post<Photo>('/database/upload/fichier_point', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 
   listUsers: () =>
     apiClient.get<{ id: string; nom: string }[]>('/database/users'),
