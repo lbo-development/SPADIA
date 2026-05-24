@@ -3,18 +3,7 @@ import { useAuth } from '@/context/AuthContext';
 import { ROLES } from '@/constants/roles';
 import { db, type Calque, type Marker } from '@/api/database';
 import { Modal } from '@/components/Modal';
-
-const C = {
-  bg:      '#0E1117',
-  surface: '#161B27',
-  surface2:'#1C2333',
-  border:  '#232B3E',
-  text:    '#E8EDF5',
-  muted:   '#6B7A99',
-  accent:  '#378ADD',
-  danger:  '#E05252',
-  success: '#3DB07A',
-};
+import { C } from '@/constants/colors';
 
 const btn = (color = C.accent, outlined = false) => ({
   display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px',
@@ -164,7 +153,7 @@ function MarkerPickerDropdown({ markers, value, onChange }: {
                   {filtered.map(m => (
                     <button key={m.id} type="button"
                       onClick={() => { onChange(m.storage_path, m.couleur); setOpen(false); setSearch(''); }}
-                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '8px 4px', background: value === m.storage_path ? C.accent + '22' : C.surface, border: `1px solid ${value === m.storage_path ? C.accent : C.border}`, borderRadius: 8, cursor: 'pointer', transition: 'border-color .15s, background .15s' }}
+                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '8px 4px', background: value === m.storage_path ? C.accent22 : C.surface, border: `1px solid ${value === m.storage_path ? C.accent : C.border}`, borderRadius: 8, cursor: 'pointer', transition: 'border-color .15s, background .15s' }}
                     >
                       <ColoredSvgSmall url={m.public_url} color={m.couleur} size={32} />
                       <span style={{ fontSize: 10, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%', textAlign: 'center' }}>{m.nom}</span>
@@ -182,7 +171,7 @@ function MarkerPickerDropdown({ markers, value, onChange }: {
 // ── Calque géo modal ──────────────────────────────────────────────────────────
 
 type CalqueGeoForm = {
-  nom: string; description: string;
+  nom: string; description: string; is_downloadable: boolean;
   niveau_accreditation: number; zoom_min: number | null; zoom_max: number | null;
   icone_path: string | null; couleur: string;
   template_champs: Record<string, unknown> | null;
@@ -200,6 +189,7 @@ function CalqueGeoModal({ initial, siteId, siteNom, onSave, onClose }: {
   const [form, setForm] = useState<CalqueGeoForm>({
     nom:                  initial?.nom ?? '',
     description:          initial?.description ?? '',
+    is_downloadable:      initial?.is_downloadable ?? false,
     niveau_accreditation: initial?.niveau_accreditation ?? 0,
     zoom_min:             initial?.zoom_min  ?? (isEdit ? null : 1),
     zoom_max:             initial?.zoom_max  ?? (isEdit ? null : 24),
@@ -266,9 +256,20 @@ function CalqueGeoModal({ initial, siteId, siteNom, onSave, onClose }: {
       <form id="calque-geo-form" onSubmit={submit}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-          <div>
-            <label style={{ fontSize: 12, color: C.muted, display: 'block', marginBottom: 5 }}>Nom *</label>
-            <input value={form.nom} onChange={e => setForm(f => ({ ...f, nom: e.target.value }))} style={inp} />
+          <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <label style={{ fontSize: 12, color: C.muted, display: 'block', marginBottom: 5 }}>Nom *</label>
+              <input value={form.nom} onChange={e => setForm(f => ({ ...f, nom: e.target.value }))} style={inp} />
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none', flexShrink: 0, height: 36 }}>
+              <div
+                onClick={() => setForm(f => ({ ...f, is_downloadable: !f.is_downloadable }))}
+                style={{ width: 36, height: 20, borderRadius: 10, background: form.is_downloadable ? C.accent : C.border, position: 'relative', transition: 'background .2s', flexShrink: 0, cursor: 'pointer' }}
+              >
+                <div style={{ position: 'absolute', top: 3, left: form.is_downloadable ? 19 : 3, width: 14, height: 14, borderRadius: '50%', background: '#fff', transition: 'left .2s' }} />
+              </div>
+              <span style={{ fontSize: 13, color: C.text }}>{form.is_downloadable ? 'Téléchargeable' : 'Non téléchargeable'}</span>
+            </label>
           </div>
 
           <div>
@@ -281,7 +282,7 @@ function CalqueGeoModal({ initial, siteId, siteNom, onSave, onClose }: {
             <select
               value={form.owner_id ?? ''}
               onChange={e => setForm(f => ({ ...f, owner_id: e.target.value || null }))}
-              style={{ ...inp, height: 36, cursor: 'pointer', borderColor: !form.owner_id ? C.danger + '88' : undefined }}
+              style={{ ...inp, height: 36, cursor: 'pointer', borderColor: !form.owner_id ? C.danger88 : undefined }}
             >
               <option value="">— Sélectionner un propriétaire —</option>
               {users.map(u => (
@@ -457,7 +458,7 @@ function SiteRow({ site, canWrite }: { site: Site; canWrite: boolean }) {
   return (
     <>
       {/* Ligne site */}
-      <div style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', padding: '0 12px', minHeight: 42, borderBottom: `1px solid ${C.border}22` }}>
+      <div style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', padding: '0 12px', minHeight: 42, borderBottom: `1px solid ${C.border22}` }}>
         {/* col1: chevron */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <button onClick={() => setOpen(v => !v)} style={iconBtn(C.muted)}>{open ? <ChevronDown /> : <ChevronRight />}</button>
@@ -501,7 +502,7 @@ function SiteRow({ site, canWrite }: { site: Site; canWrite: boolean }) {
             </div>
           )}
           {!loading && calques?.map(c => (
-            <div key={c.id} style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', minHeight: 36, borderBottom: `1px solid ${C.border}18`, paddingLeft: 12, paddingRight: 12 }}>
+            <div key={c.id} style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', minHeight: 36, borderBottom: `1px solid ${C.border18}`, paddingLeft: 12, paddingRight: 12 }}>
               {/* col1: layer icon — indent via paddingLeft pour garder l'alignement des autres colonnes */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingLeft: 24, paddingRight: 4 }}>
                 <span style={{ color: C.muted, display: 'flex' }}><LayerIcon /></span>
@@ -512,7 +513,7 @@ function SiteRow({ site, canWrite }: { site: Site; canWrite: boolean }) {
               <span title={c.owner_nom || undefined}><OwnerChip nom={c.owner_nom} /></span>
               {/* col4: accréditation */}
               <div style={{ display: 'flex', justifyContent: 'center' }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', background: C.accent + '33', border: `1px solid ${C.accent}66`, fontSize: 11, fontWeight: 700, color: C.accent }}>{c.niveau_accreditation}</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', background: C.accent33, border: `1px solid ${C.accent66}`, fontSize: 11, fontWeight: 700, color: C.accent }}>{c.niveau_accreditation}</span>
               </div>
               {/* col5: icône SVG du calque */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

@@ -21,11 +21,24 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
 }
 
+function ProtectedSubmitRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, user } = useAuth();
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (user?.role === ROLES.VIEWER) return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+}
+
+function ProtectedValidationRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, user } = useAuth();
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (user?.role !== ROLES.ADMIN_APP && user?.role !== ROLES.ADMIN_DATA) return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+}
+
 function ProtectedDatabaseRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, user } = useAuth();
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-  const canAccess = user?.role === ROLES.ADMIN_APP || user?.role === ROLES.ADMIN_DATA;
-  if (!canAccess) return <Navigate to="/" replace />;
+  if (user?.role !== ROLES.ADMIN_APP) return <Navigate to="/" replace />;
   return <>{children}</>;
 }
 
@@ -62,8 +75,8 @@ export default function App() {
         <ProtectedRoute><DashboardLayout /></ProtectedRoute>
       }>
         <Route index element={<DataAccessPage />} />
-        <Route path="soumettre" element={<SoumettreAjoutPage />} />
-        <Route path="valider"   element={<ValiderDemandesPage />} />
+        <Route path="soumettre" element={<ProtectedSubmitRoute><SoumettreAjoutPage /></ProtectedSubmitRoute>} />
+        <Route path="valider"   element={<ProtectedValidationRoute><ValiderDemandesPage /></ProtectedValidationRoute>} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

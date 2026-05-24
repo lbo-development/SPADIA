@@ -1,3 +1,117 @@
+/* ══ THEME VARIABLES ══════════════════════════════════════════════════════════ */
+
+/* Dark mode (défaut) */
+:root {
+  color-scheme: dark;
+  --bg:       #0E1117;
+  --surface:  #161B27;
+  --surface2: #1C2333;
+  --border:   #232B3E;
+  --text:     #E8EDF5;
+  --muted:    #6B7A99;
+  --accent:   #378ADD;
+  --primary:  #185FA5;
+  --danger:   #E05252;
+  --success:  #3DB07A;
+  --warning:  #D98C00;
+  /* Spécifique */
+  --error-bg:      #2A1515;
+  --error-border:  #C0392B55;
+  --reorder-over:  #12213A;
+  /* Alpha accent */
+  --accent-hover: #4D9FE0;
+  --accent-glow:  rgba(55,138,221,0.35);
+  --accent-08:  #378ADD08;
+  --accent-0a:  #378ADD0A;
+  --accent-14:  #378ADD14;
+  --accent-18:  #378ADD18;
+  --accent-22:  #378ADD22;
+  --accent-33:  #378ADD33;
+  --accent-44:  #378ADD44;
+  --accent-55:  #378ADD55;
+  --accent-66:  #378ADD66;
+  /* Alpha border */
+  --border-18: #232B3E18;
+  --border-20: #232B3E20;
+  --border-22: #232B3E22;
+  /* Alpha danger */
+  --danger-44: #E0525244;
+  --danger-88: #E0525288;
+  /* Alpha muted */
+  --muted-88:  #6B7A9988;
+  /* Alpha success */
+  --success-18: #3DB07A18;
+  --success-22: #3DB07A22;
+  --success-44: #3DB07A44;
+  /* Alpha surface2 */
+  --surface2-80: #1C233380;
+}
+
+/* Light mode */
+html[data-theme="light"] {
+  color-scheme: light;
+  --bg:       #F5F7FA;
+  --surface:  #FFFFFF;
+  --surface2: #EEF3F8;
+  --border:   #D7E0EA;
+  --text:     #0F172A;
+  --muted:    #475569;
+  --accent:   #2563EB;
+  --primary:  #1D4ED8;
+  --danger:   #DC2626;
+  --success:  #16A34A;
+  --warning:  #D97706;
+  /* Spécifique */
+  --error-bg:      #FEF2F2;
+  --error-border:  rgba(220,38,38,0.3);
+  --reorder-over:  #EFF6FF;
+  /* Alpha accent */
+  --accent-hover: #1D4ED8;
+  --accent-glow:  rgba(37,99,235,0.30);
+  --accent-08:  rgba(37,99,235,0.03);
+  --accent-0a:  rgba(37,99,235,0.04);
+  --accent-14:  rgba(37,99,235,0.08);
+  --accent-18:  rgba(37,99,235,0.09);
+  --accent-22:  rgba(37,99,235,0.13);
+  --accent-33:  rgba(37,99,235,0.20);
+  --accent-44:  rgba(37,99,235,0.27);
+  --accent-55:  rgba(37,99,235,0.33);
+  --accent-66:  rgba(37,99,235,0.40);
+  /* Alpha border — valeurs solides lisibles sur fond clair */
+  --border-18: #E2E8F0;
+  --border-20: #DDE4EC;
+  --border-22: #D8E0EA;
+  /* Alpha danger */
+  --danger-44: rgba(220,38,38,0.27);
+  --danger-88: rgba(220,38,38,0.53);
+  /* Alpha muted */
+  --muted-88:  rgba(71,85,105,0.53);
+  /* Alpha success */
+  --success-18: rgba(22,163,74,0.09);
+  --success-22: rgba(22,163,74,0.13);
+  --success-44: rgba(22,163,74,0.27);
+  /* Alpha surface2 */
+  --surface2-80: rgba(238,243,248,0.5);
+}
+
+/* Transition douce entre les thèmes */
+*, *::before, *::after {
+  transition:
+    background-color 0.20s ease,
+    border-color     0.20s ease,
+    color            0.20s ease,
+    box-shadow       0.20s ease;
+}
+
+/* Annule la transition sur les éléments interactifs pour ne pas ralentir les animations UI */
+button, a, input, select, textarea {
+  transition:
+    background-color 0.20s ease,
+    border-color     0.20s ease,
+    color            0.20s ease,
+    opacity          0.15s ease;
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
 }

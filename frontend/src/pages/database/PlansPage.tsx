@@ -3,19 +3,7 @@ import { useAuth } from '@/context/AuthContext';
 import { ROLES } from '@/constants/roles';
 import { db, type Calque, type Marker } from '@/api/database';
 import { Modal } from '@/components/Modal';
-
-const C = {
-  bg:      '#0E1117',
-  surface: '#161B27',
-  surface2:'#1C2333',
-  border:  '#232B3E',
-  text:    '#E8EDF5',
-  muted:   '#6B7A99',
-  accent:  '#378ADD',
-  danger:  '#E05252',
-  success: '#3DB07A',
-  warn:    '#D4A017',
-};
+import { C } from '@/constants/colors';
 
 // ── Icons ────────────────────────────────────────────────────────────────────
 
@@ -358,7 +346,7 @@ function MarkerPickerDropdown({ markers, value, onChange }: {
                       key={m.id}
                       type="button"
                       onClick={() => { onChange(m.storage_path, m.couleur); setOpen(false); setSearch(''); }}
-                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '8px 4px', background: value === m.storage_path ? C.accent + '22' : C.surface, border: `1px solid ${value === m.storage_path ? C.accent : C.border}`, borderRadius: 8, cursor: 'pointer', transition: 'border-color .15s, background .15s' }}
+                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '8px 4px', background: value === m.storage_path ? C.accent22 : C.surface, border: `1px solid ${value === m.storage_path ? C.accent : C.border}`, borderRadius: 8, cursor: 'pointer', transition: 'border-color .15s, background .15s' }}
                     >
                       <ColoredSvgSmall url={m.public_url} color={m.couleur} size={34} />
                       <span style={{ fontSize: 10, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%', textAlign: 'center' }}>{m.nom}</span>
@@ -386,7 +374,7 @@ const GEOM_TYPES = [
 
 type PropRow = { key: string; defaultVal: string };
 
-type CalqueFormData = { nom: string; description: string; type: string; niveau_accreditation: number; zoom_min: number | null; zoom_max: number | null; icone_path: string | null; couleur: string; template_champs: Record<string, unknown> | null; owner_id: string | null };
+type CalqueFormData = { nom: string; description: string; is_downloadable: boolean; type: string; niveau_accreditation: number; zoom_min: number | null; zoom_max: number | null; icone_path: string | null; couleur: string; template_champs: Record<string, unknown> | null; owner_id: string | null };
 
 function CalqueModal({ initial, planId, planNom, onSave, onClose }: {
   initial?: Partial<Calque>;
@@ -407,6 +395,7 @@ function CalqueModal({ initial, planId, planNom, onSave, onClose }: {
     couleur:              initial?.couleur ?? '',
     template_champs:      initial?.template_champs ?? null,
     owner_id:             initial?.owner_id ?? null,
+    is_downloadable:      initial?.is_downloadable ?? false,
   });
   const [saving,  setSaving]  = useState(false);
   const [err,     setErr]     = useState('');
@@ -472,9 +461,20 @@ function CalqueModal({ initial, planId, planNom, onSave, onClose }: {
     >
       <form onSubmit={submit}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div>
-            <label style={{ fontSize: 12, color: C.muted, display: 'block', marginBottom: 5 }}>Nom *</label>
-            <input value={form.nom} onChange={set('nom')} style={inp} />
+          <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <label style={{ fontSize: 12, color: C.muted, display: 'block', marginBottom: 5 }}>Nom *</label>
+              <input value={form.nom} onChange={set('nom')} style={inp} />
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none', flexShrink: 0, height: 36 }}>
+              <div
+                onClick={() => setForm(f => ({ ...f, is_downloadable: !f.is_downloadable }))}
+                style={{ width: 36, height: 20, borderRadius: 10, background: form.is_downloadable ? C.accent : C.border, position: 'relative', transition: 'background .2s', flexShrink: 0, cursor: 'pointer' }}
+              >
+                <div style={{ position: 'absolute', top: 3, left: form.is_downloadable ? 19 : 3, width: 14, height: 14, borderRadius: '50%', background: '#fff', transition: 'left .2s' }} />
+              </div>
+              <span style={{ fontSize: 13, color: C.text }}>{form.is_downloadable ? 'Téléchargeable' : 'Non téléchargeable'}</span>
+            </label>
           </div>
           <div>
             <label style={{ fontSize: 12, color: C.muted, display: 'block', marginBottom: 5 }}>Description</label>
@@ -485,7 +485,7 @@ function CalqueModal({ initial, planId, planNom, onSave, onClose }: {
             <select
               value={form.owner_id ?? ''}
               onChange={e => setForm(f => ({ ...f, owner_id: e.target.value || null }))}
-              style={{ ...inp, height: 36, cursor: 'pointer', borderColor: !form.owner_id ? C.danger + '88' : undefined }}
+              style={{ ...inp, height: 36, cursor: 'pointer', borderColor: !form.owner_id ? C.danger88 : undefined }}
             >
               <option value="">— Sélectionner un propriétaire —</option>
               {users.map(u => <option key={u.id} value={u.id}>{u.nom}</option>)}
@@ -752,10 +752,10 @@ function PlanRow({ plan, canWrite, onEdit, onDelete, onUploadSvg }: {
         onDragOver={e => { e.preventDefault(); if (e.dataTransfer.types.includes('Files')) setSvgDragOver(true); }}
         onDragLeave={() => setSvgDragOver(false)}
         onDrop={handleDrop}
-        style={{ background: svgDragOver ? C.accent + '18' : 'transparent', border: svgDragOver ? `1px solid ${C.accent}55` : '1px solid transparent', borderRadius: 8, transition: 'background .15s' }}
+        style={{ background: svgDragOver ? C.accent18 : 'transparent', border: svgDragOver ? `1px solid ${C.accent55}` : '1px solid transparent', borderRadius: 8, transition: 'background .15s' }}
       >
         {/* Plan row */}
-        <div style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', padding: '0 12px', minHeight: 42, borderBottom: `1px solid ${C.border}22` }}>
+        <div style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', padding: '0 12px', minHeight: 42, borderBottom: `1px solid ${C.border22}` }}>
           {/* col1 */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <button onClick={toggle} style={iconBtn(C.muted)}>{open ? <ChevronDown /> : <ChevronRight />}</button>
@@ -813,7 +813,7 @@ function PlanRow({ plan, canWrite, onEdit, onDelete, onUploadSvg }: {
               </div>
             )}
             {!loading && calques?.map(c => (
-              <div key={c.id} style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', padding: '0 12px', minHeight: 36, borderBottom: `1px solid ${C.border}18`, paddingLeft: 36 }}>
+              <div key={c.id} style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', padding: '0 12px', minHeight: 36, borderBottom: `1px solid ${C.border18}`, paddingLeft: 36 }}>
                 {/* col1 */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 6 }}>
                   <span style={{ display: 'flex', alignItems: 'center', color: C.muted }}><LayerIcon /></span>
@@ -824,7 +824,7 @@ function PlanRow({ plan, canWrite, onEdit, onDelete, onUploadSvg }: {
                 <span><OwnerChip nom={c.owner_nom} /></span>
                 {/* col4: niveau accréditation */}
                 <div style={{ display: 'flex', justifyContent: 'center' }}>
-                  <span title="Niveau d'accréditation" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', background: C.accent + '33', border: `1px solid ${C.accent}66`, fontSize: 11, fontWeight: 700, color: C.accent, cursor: 'default' }}>{c.niveau_accreditation}</span>
+                  <span title="Niveau d'accréditation" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', background: C.accent33, border: `1px solid ${C.accent66}`, fontSize: 11, fontWeight: 700, color: C.accent, cursor: 'default' }}>{c.niveau_accreditation}</span>
                 </div>
                 {/* col5: ICÔNE */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

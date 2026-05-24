@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { dashboardApi, type DashboardStats, type QuickAccessData } from '@/api/dashboard';
 import { ROLES } from '@/constants/roles';
+import { C } from '@/constants/colors';
 
 export default function DataAccessPage() {
   const navigate = useNavigate();
@@ -135,7 +136,6 @@ function QuickRow({ label, value, onChange, options, onOpen, last = false }: {
   );
 }
 
-const C = { bg: '#0E1117', surface: '#161B27', border: '#232B3E', primary: '#185FA5', accent: '#378ADD', text: '#E8EDF5', muted: '#6B7A99' };
 const s: Record<string, React.CSSProperties> = {
   root: { minHeight: '100vh', background: C.bg, fontFamily: '"Segoe UI", sans-serif' },
   nav: { height: 48, background: C.bg, borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 12, padding: '0 16px', position: 'sticky', top: 0, zIndex: 100 },

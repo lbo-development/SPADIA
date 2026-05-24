@@ -18,7 +18,7 @@ const columns: ColumnDef[] = [
   { key: 'actif',       label: 'Actif',  render: v => v ? '✓' : '✗' },
 ];
 
-const C = { bg: '#0E1117', border: '#232B3E', text: '#E8EDF5', muted: '#6B7A99' };
+import { C } from '@/constants/colors';
 
 export default function InstallationsPage() {
   const { user } = useAuth();

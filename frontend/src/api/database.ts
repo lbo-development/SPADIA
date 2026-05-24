@@ -18,6 +18,7 @@ export type Calque = {
   template_champs: Record<string, unknown> | null;
   zoom_min: number | null;
   zoom_max: number | null;
+  is_downloadable: boolean;
   order: number;
   owner_id: string | null;
   owner_nom: string;

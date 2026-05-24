@@ -1,4 +1,4 @@
-const C = { bg: '#0E1117', text: '#E8EDF5', muted: '#6B7A99', border: '#232B3E' };
+import { C } from '@/constants/colors';
 
 export default function DashboardDatabasePage() {
   return (

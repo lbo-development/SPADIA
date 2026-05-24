@@ -3,19 +3,7 @@ import { useAuth } from '@/context/AuthContext';
 import { ROLES } from '@/constants/roles';
 import { db, type FichierPdf } from '@/api/database';
 import { Modal } from '@/components/Modal';
-
-const C = {
-  bg:      '#0E1117',
-  surface: '#161B27',
-  surface2:'#1C2333',
-  border:  '#232B3E',
-  text:    '#E8EDF5',
-  muted:   '#6B7A99',
-  accent:  '#378ADD',
-  danger:  '#E05252',
-  success: '#3DB07A',
-  warn:    '#D4A017',
-};
+import { C } from '@/constants/colors';
 
 // ── Icons ────────────────────────────────────────────────────────────────────
 
@@ -293,7 +281,7 @@ function FichierDetailsModal({ fichier, onClose }: { fichier: FichierPdf; onClos
 
   const rowStyle: React.CSSProperties = {
     display: 'flex', alignItems: 'flex-start', gap: 12,
-    padding: '10px 0', borderBottom: `1px solid ${C.border}22`,
+    padding: '10px 0', borderBottom: `1px solid ${C.border22}`,
   };
   const labelStyle: React.CSSProperties = {
     width: 140, flexShrink: 0, fontSize: 11, fontWeight: 600,
@@ -354,7 +342,7 @@ function FichierDetailsModal({ fichier, onClose }: { fichier: FichierPdf; onClos
           <span style={labelStyle} />
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span title="Niveau d'accréditation" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', background: C.accent + '33', border: `1px solid ${C.accent}66`, fontSize: 11, fontWeight: 700, color: C.accent }}>
+              <span title="Niveau d'accréditation" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', background: C.accent33, border: `1px solid ${C.accent66}`, fontSize: 11, fontWeight: 700, color: C.accent }}>
                 {fichier.niveau_accreditation}
               </span>
               <span style={{ fontSize: 12, color: C.muted }}>Niveau d'accréditation</span>
@@ -493,10 +481,10 @@ function DossierRow({
         onDragOver={e => { e.preventDefault(); setFileDragOver(true); }}
         onDragLeave={() => setFileDragOver(false)}
         onDrop={handleDrop}
-        style={{ background: fileDragOver ? C.accent + '18' : 'transparent', border: fileDragOver ? `1px solid ${C.accent}55` : '1px solid transparent', borderRadius: 8, transition: 'background .15s' }}
+        style={{ background: fileDragOver ? C.accent18 : 'transparent', border: fileDragOver ? `1px solid ${C.accent55}` : '1px solid transparent', borderRadius: 8, transition: 'background .15s' }}
       >
         {/* Dossier row — grid aligned with header */}
-        <div style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', padding: '0 12px', minHeight: 42, borderBottom: `1px solid ${C.border}22` }}>
+        <div style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', padding: '0 12px', minHeight: 42, borderBottom: `1px solid ${C.border22}` }}>
           {/* col1: chevron + folder icon */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <button onClick={toggle} style={iconBtn(C.muted)}>{open ? <ChevronDown /> : <ChevronRight />}</button>
@@ -549,7 +537,7 @@ function DossierRow({
               </div>
             )}
             {!loading && fichiers?.map(f => (
-              <div key={f.id} style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', padding: '0 12px', minHeight: 36, borderBottom: `1px solid ${C.border}18`, paddingLeft: 36 }}>
+              <div key={f.id} style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', padding: '0 12px', minHeight: 36, borderBottom: `1px solid ${C.border18}`, paddingLeft: 36 }}>
                 {/* col1: indent + file icon */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 6 }}>
                   <span style={{ display: 'flex', alignItems: 'center', color: C.muted }}><FileIcon /></span>
@@ -560,7 +548,7 @@ function DossierRow({
                 <span />
                 {/* col4: niveau accréditation — pastille ronde */}
                 <div style={{ display: 'flex', justifyContent: 'center' }}>
-                  <span title="Niveau d'accréditation" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', background: C.accent + '33', border: `1px solid ${C.accent}66`, fontSize: 11, fontWeight: 700, color: C.accent, cursor: 'default' }}>{f.niveau_accreditation}</span>
+                  <span title="Niveau d'accréditation" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', background: C.accent33, border: `1px solid ${C.accent66}`, fontSize: 11, fontWeight: 700, color: C.accent, cursor: 'default' }}>{f.niveau_accreditation}</span>
                 </div>
                 {/* col5: is_uploadable */}
                 <div style={{ display: 'flex', alignItems: 'center' }}>

@@ -2,20 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/api/database';
 import { Modal } from '@/components/Modal';
-
-// ── Palette ───────────────────────────────────────────────────────────────────
-
-const C = {
-  bg:      '#0E1117',
-  surface: '#161B27',
-  surface2:'#1C2333',
-  border:  '#232B3E',
-  text:    '#E8EDF5',
-  muted:   '#6B7A99',
-  accent:  '#378ADD',
-  danger:  '#E05252',
-  success: '#3DB07A',
-};
+import { C } from '@/constants/colors';
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
@@ -124,7 +111,7 @@ type AdminUser  = { id: string; nom: string };
 function SuccessContent({ entityLabel, onClose }: { entityLabel: string; onClose: () => void }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '32px 24px' }}>
-      <div style={{ width: 56, height: 56, borderRadius: '50%', background: C.success + '22',
+      <div style={{ width: 56, height: 56, borderRadius: '50%', background: C.success22,
         border: `2px solid ${C.success}`, display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: 26, marginBottom: 20 }}>✓</div>
       <h3 style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 700, color: C.text }}>Demande soumise</h3>
@@ -334,7 +321,7 @@ function PdfModal({ onClose, sites, installations, dossiers, admins }: {
             onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
           {pdfFile && pdfPath ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
-              background: C.surface2, border: `1px solid ${C.success}44`, borderRadius: 10 }}>
+              background: C.surface2, border: `1px solid ${C.success44}`, borderRadius: 10 }}>
               <span style={{ width: 10, height: 10, borderRadius: '50%', background: C.success, flexShrink: 0 }} />
               <div style={{ flex: 1, overflow: 'hidden' }}>
                 <div style={{ fontSize: 13, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pdfFile.name}</div>
@@ -351,7 +338,7 @@ function PdfModal({ onClose, sites, installations, dossiers, admins }: {
               onClick={() => fileRef.current?.click()}
               style={{ border: `2px dashed ${dragOver ? C.accent : C.border}`, borderRadius: 12,
                 padding: '32px 24px', textAlign: 'center', cursor: 'pointer',
-                background: dragOver ? C.accent + '0A' : C.surface2, transition: 'border-color .15s, background .15s' }}>
+                background: dragOver ? C.accent0a : C.surface2, transition: 'border-color .15s, background .15s' }}>
               {uploading ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, color: C.muted }}>
                   <Spinner /><span style={{ fontSize: 13 }}>Upload en cours…</span>
@@ -539,7 +526,7 @@ function PlanModal({ onClose, sites, installations, admins }: {
             onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
           {svgFile && svgPath ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
-              background: C.surface2, border: `1px solid ${C.success}44`, borderRadius: 10 }}>
+              background: C.surface2, border: `1px solid ${C.success44}`, borderRadius: 10 }}>
               <span style={{ width: 10, height: 10, borderRadius: '50%', background: C.success, flexShrink: 0 }} />
               <div style={{ flex: 1, overflow: 'hidden' }}>
                 <div style={{ fontSize: 13, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{svgFile.name}</div>
@@ -556,7 +543,7 @@ function PlanModal({ onClose, sites, installations, admins }: {
               onClick={() => fileRef.current?.click()}
               style={{ border: `2px dashed ${dragOver ? C.accent : C.border}`, borderRadius: 12,
                 padding: '32px 24px', textAlign: 'center', cursor: 'pointer',
-                background: dragOver ? C.accent + '0A' : C.surface2, transition: 'border-color .15s, background .15s' }}>
+                background: dragOver ? C.accent0a : C.surface2, transition: 'border-color .15s, background .15s' }}>
               {uploading ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, color: C.muted }}>
                   <Spinner /><span style={{ fontSize: 13 }}>Upload en cours…</span>
@@ -880,14 +867,14 @@ export default function SoumettreAjoutPage() {
             }}
             onMouseEnter={e => {
               (e.currentTarget as HTMLButtonElement).style.borderColor = C.accent;
-              (e.currentTarget as HTMLButtonElement).style.background  = C.accent + '0A';
+              (e.currentTarget as HTMLButtonElement).style.background  = C.accent0a;
             }}
             onMouseLeave={e => {
               (e.currentTarget as HTMLButtonElement).style.borderColor = C.border;
               (e.currentTarget as HTMLButtonElement).style.background  = C.surface;
             }}
           >
-            <div style={{ width: 64, height: 64, borderRadius: 16, background: C.accent + '18',
+            <div style={{ width: 64, height: 64, borderRadius: 16, background: C.accent18,
               display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {card.icon}
             </div>

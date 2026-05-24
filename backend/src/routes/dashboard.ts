@@ -11,34 +11,34 @@ router.get('/stats', authMiddleware, async (req: AuthenticatedRequest, res: Resp
     const [sitesRes, installationsRes, plansRes, dossiersRes] = await Promise.all([
       supabase.from('sites').select('id', { count: 'exact', head: true }).eq('actif', true),
       supabase.from('installations').select('id', { count: 'exact', head: true }).eq('actif', true),
-      supabase.from('plans').select('id', { count: 'exact', head: true }).eq('actif', true).eq('statut', 'Validé'),
-      supabase.from('dossiers').select('id', { count: 'exact', head: true }).eq('statut', 'Validé'),
+      supabase.from('plans').select('id', { count: 'exact', head: true }).eq('actif', true),
+      supabase.from('dossiers').select('id', { count: 'exact', head: true }).eq('actif', true),
     ]);
 
     let pending = { plans: 0, calques: 0, dossiers: 0, photos: 0 };
 
     if (role === ROLES.ADMIN_APP || role === ROLES.VIEWER) {
       const [p, c, d, ph] = await Promise.all([
-        supabase.from('plans').select('id', { count: 'exact', head: true }).eq('statut', 'En attente'),
-        supabase.from('calques').select('id', { count: 'exact', head: true }).eq('statut', 'En attente'),
-        supabase.from('dossiers').select('id', { count: 'exact', head: true }).eq('statut', 'En attente'),
-        supabase.from('photos').select('id', { count: 'exact', head: true }).eq('statut', 'en_attente'),
+        supabase.from('pour_validation').select('id', { count: 'exact', head: true }).eq('entity_type', 'plan').eq('statut', 'En attente'),
+        supabase.from('pour_validation').select('id', { count: 'exact', head: true }).eq('entity_type', 'calque').eq('statut', 'En attente'),
+        supabase.from('pour_validation').select('id', { count: 'exact', head: true }).eq('entity_type', 'fichier_pdf').eq('statut', 'En attente'),
+        supabase.from('photosFichiersPoints').select('id', { count: 'exact', head: true }).eq('statut', 'en_attente'),
       ]);
       pending = { plans: p.count ?? 0, calques: c.count ?? 0, dossiers: d.count ?? 0, photos: ph.count ?? 0 };
     } else if (role === ROLES.ADMIN_DATA) {
       const [p, c, d, ph] = await Promise.all([
-        supabase.from('plans').select('id', { count: 'exact', head: true }).eq('statut', 'En attente').eq('validateur_id', userId),
-        supabase.from('calques').select('id', { count: 'exact', head: true }).eq('statut', 'En attente').eq('validateur_id', userId),
-        supabase.from('dossiers').select('id', { count: 'exact', head: true }).eq('statut', 'En attente').eq('validateur_id', userId),
-        supabase.from('photos').select('id', { count: 'exact', head: true }).eq('statut', 'en_attente').eq('validateur_id', userId),
+        supabase.from('pour_validation').select('id', { count: 'exact', head: true }).eq('entity_type', 'plan').eq('statut', 'En attente').eq('validateur_id', userId),
+        supabase.from('pour_validation').select('id', { count: 'exact', head: true }).eq('entity_type', 'calque').eq('statut', 'En attente').eq('validateur_id', userId),
+        supabase.from('pour_validation').select('id', { count: 'exact', head: true }).eq('entity_type', 'fichier_pdf').eq('statut', 'En attente').eq('validateur_id', userId),
+        supabase.from('photosFichiersPoints').select('id', { count: 'exact', head: true }).eq('statut', 'en_attente').eq('validateur_id', userId),
       ]);
       pending = { plans: p.count ?? 0, calques: c.count ?? 0, dossiers: d.count ?? 0, photos: ph.count ?? 0 };
     } else if (role === ROLES.USER) {
       const [p, c, d, ph] = await Promise.all([
-        supabase.from('plans').select('id', { count: 'exact', head: true }).in('statut', ['En attente', 'A compléter']).eq('validateur_id', userId),
-        supabase.from('calques').select('id', { count: 'exact', head: true }).in('statut', ['En attente', 'A compléter']).eq('validateur_id', userId),
-        supabase.from('dossiers').select('id', { count: 'exact', head: true }).in('statut', ['En attente', 'A compléter']).eq('validateur_id', userId),
-        supabase.from('photos').select('id', { count: 'exact', head: true }).in('statut', ['en_attente', 'a_completer']).eq('validateur_id', userId),
+        supabase.from('pour_validation').select('id', { count: 'exact', head: true }).eq('entity_type', 'plan').in('statut', ['En attente', 'A compléter']).eq('proposedby_id', userId),
+        supabase.from('pour_validation').select('id', { count: 'exact', head: true }).eq('entity_type', 'calque').in('statut', ['En attente', 'A compléter']).eq('proposedby_id', userId),
+        supabase.from('pour_validation').select('id', { count: 'exact', head: true }).eq('entity_type', 'fichier_pdf').in('statut', ['En attente', 'A compléter']).eq('proposedby_id', userId),
+        supabase.from('photosFichiersPoints').select('id', { count: 'exact', head: true }).in('statut', ['en_attente', 'a_completer']).eq('validateur_id', userId),
       ]);
       pending = { plans: p.count ?? 0, calques: c.count ?? 0, dossiers: d.count ?? 0, photos: ph.count ?? 0 };
     }
@@ -62,8 +62,8 @@ router.get('/quick-access', authMiddleware, async (_req: AuthenticatedRequest, r
   try {
     const [sitesRes, plansRes, dossiersRes] = await Promise.all([
       supabase.from('sites').select('id, nom').eq('actif', true).order('order', { ascending: true }).order('nom', { ascending: true }),
-      supabase.from('plans').select('id, nom').eq('actif', true).eq('statut', 'Validé').order('order', { ascending: true }).limit(50),
-      supabase.from('dossiers').select('id, nom').eq('statut', 'Validé').order('order', { ascending: true }).limit(50),
+      supabase.from('plans').select('id, nom').eq('actif', true).order('order', { ascending: true }).limit(50),
+      supabase.from('dossiers').select('id, nom').eq('actif', true).order('order', { ascending: true }).limit(50),
     ]);
     res.json({ sites: sitesRes.data ?? [], plans: plansRes.data ?? [], dossiers: dossiersRes.data ?? [] });
   } catch (err) {

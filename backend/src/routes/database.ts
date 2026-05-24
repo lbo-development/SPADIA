@@ -15,6 +15,10 @@ const adminAll = [ROLES.ADMIN_APP, ROLES.ADMIN_DATA];
 const adminApp = [ROLES.ADMIN_APP];
 const allRoles  = [ROLES.ADMIN_APP, ROLES.ADMIN_DATA, ROLES.USER, ROLES.VIEWER];
 
+function isPrivilegedRole(role: string) {
+  return role === ROLES.ADMIN_APP || role === ROLES.ADMIN_DATA || role === ROLES.VIEWER;
+}
+
 function crud(
   table: string,
   readRoles: typeof adminAll,
@@ -126,7 +130,7 @@ function geoBody(raw: Record<string, unknown>): Record<string, unknown> {
   return body;
 }
 
-router.get('/sites', authMiddleware, requireRole(adminAll),
+router.get('/sites', authMiddleware, requireRole(allRoles),
   async (_req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       const { data, error } = await supabase.from('sites').select(SITE_SELECT).order('order', { ascending: true });
@@ -192,7 +196,7 @@ function installBody(raw: Record<string, unknown>): Record<string, unknown> {
   return geoBody(rest);
 }
 
-router.get('/installations', authMiddleware, requireRole(adminAll),
+router.get('/installations', authMiddleware, requireRole(allRoles),
   async (_req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       const { data, error } = await supabase.from('installations').select(INSTALL_SELECT).order('order', { ascending: true });
@@ -278,7 +282,7 @@ function planBody(raw: Record<string, unknown>): Record<string, unknown> {
   return rest;
 }
 
-router.get('/plans', authMiddleware, requireRole(adminAll),
+router.get('/plans', authMiddleware, requireRole(allRoles),
   async (_req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       const { data, error } = await supabase.from('plans').select(PLAN_SELECT).order('order', { ascending: true });
@@ -309,7 +313,7 @@ router.post('/plans', authMiddleware, requireRole(adminAll),
   },
 );
 
-router.get('/plans/:id', authMiddleware, requireRole(adminAll),
+router.get('/plans/:id', authMiddleware, requireRole(allRoles),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       const { data, error } = await supabase.from('plans').select(PLAN_SELECT).eq('id', req.params.id).single();
@@ -351,7 +355,7 @@ router.delete('/plans/:id', authMiddleware, requireRole(adminAll),
 
 // ── Calques — routes dédiées (jointures plan + user_profiles) ───────────────
 
-const CALQUE_SELECT = `id, site_id, installation_id, plan_id, nom, description, type, niveau_accreditation, icone_path, couleur, template_champs, zoom_min, zoom_max, "order", owner_id, validateur_id, date_validation, created_at, updated_at, sites!calques_site_id_fkey(nom), installations!calques_installation_id_fkey(nom), plans!calques_plan_id_fkey(nom, sites!plans_site_id_fkey(nom), installations!plans_installation_id_fkey(nom)), owner:user_profiles!calques_owner_id_fkey(nom), validateur:user_profiles!calques_validateur_id_fkey(nom)`;
+const CALQUE_SELECT = `id, site_id, installation_id, plan_id, nom, description, type, niveau_accreditation, icone_path, couleur, template_champs, zoom_min, zoom_max, is_downloadable, "order", owner_id, validateur_id, date_validation, created_at, updated_at, sites!calques_site_id_fkey(nom), installations!calques_installation_id_fkey(nom), plans!calques_plan_id_fkey(nom, sites!plans_site_id_fkey(nom), installations!plans_installation_id_fkey(nom)), owner:user_profiles!calques_owner_id_fkey(nom), validateur:user_profiles!calques_validateur_id_fkey(nom)`;
 const TYPES_CALQUE  = ['geographique', 'non_geographique'];
 
 function flattenCalque(row: Record<string, unknown>): Record<string, unknown> {
@@ -381,13 +385,14 @@ function clampCalqueAccred(v: unknown): number {
   return isNaN(n) ? 0 : Math.min(3, Math.max(0, n));
 }
 
-router.get('/calques', authMiddleware, requireRole(adminAll),
+router.get('/calques', authMiddleware, requireRole(allRoles),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       const { plan_id, site_id } = req.query;
       let q = supabase.from('calques').select(CALQUE_SELECT).order('order', { ascending: true });
       if (plan_id)  q = q.eq('plan_id',  String(plan_id));
       if (site_id)  q = q.eq('site_id',  String(site_id)).is('plan_id', null);
+      if (!isPrivilegedRole(req.user!.role)) q = q.lte('niveau_accreditation', req.user!.niveau_accreditation);
       const { data, error } = await q;
       if (error) throw error;
 
@@ -402,7 +407,7 @@ router.get('/calques', authMiddleware, requireRole(adminAll),
 router.post('/calques', authMiddleware, requireRole(adminAll),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
-      const { plan_id, site_id, installation_id, nom, description, type, niveau_accreditation, icone_path, couleur, zoom_min, zoom_max, template_champs, owner_id, validateur_id, date_validation } = req.body;
+      const { plan_id, site_id, installation_id, nom, description, type, niveau_accreditation, icone_path, couleur, zoom_min, zoom_max, is_downloadable, template_champs, owner_id, validateur_id, date_validation } = req.body;
       if (!nom || !type || (!plan_id && !site_id)) {
         res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'nom, type et (plan_id ou site_id) sont requis.', details: null } });
         return;
@@ -423,6 +428,7 @@ router.post('/calques', authMiddleware, requireRole(adminAll),
         template_champs:      template_champs ?? null,
         zoom_min:             zoom_min        ?? null,
         zoom_max:             zoom_max        ?? null,
+        is_downloadable:      is_downloadable ?? false,
       };
       const { data, error } = await supabase.from('calques').insert(insertData).select(CALQUE_SELECT).single();
       if (error) throw error;
@@ -434,10 +440,12 @@ router.post('/calques', authMiddleware, requireRole(adminAll),
   },
 );
 
-router.get('/calques/:id', authMiddleware, requireRole(adminAll),
+router.get('/calques/:id', authMiddleware, requireRole(allRoles),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
-      const { data, error } = await supabase.from('calques').select(CALQUE_SELECT).eq('id', req.params.id).single();
+      let q = supabase.from('calques').select(CALQUE_SELECT).eq('id', req.params.id);
+      if (!isPrivilegedRole(req.user!.role)) q = q.lte('niveau_accreditation', req.user!.niveau_accreditation);
+      const { data, error } = await q.single();
       if (error) throw error;
       res.json(flattenCalque(data as Record<string, unknown>));
     } catch (err) {
@@ -553,7 +561,7 @@ function flattenDossier(row: Record<string, unknown>): Record<string, unknown> {
   };
 }
 
-router.get('/dossiers', authMiddleware, requireRole(adminAll),
+router.get('/dossiers', authMiddleware, requireRole(allRoles),
   async (_req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       const { data, error } = await supabase
@@ -642,12 +650,13 @@ function flattenFichier(row: Record<string, unknown>): Record<string, unknown> {
   };
 }
 
-router.get('/fichiers_pdf', authMiddleware, requireRole(adminAll),
+router.get('/fichiers_pdf', authMiddleware, requireRole(allRoles),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       const { dossier_id } = req.query;
       let q = supabase.from('fichiers_pdf').select(FICHIER_SELECT).order('order', { ascending: true });
       if (dossier_id) q = q.eq('dossier_id', String(dossier_id));
+      if (!isPrivilegedRole(req.user!.role)) q = q.lte('niveau_accreditation', req.user!.niveau_accreditation);
       const { data, error } = await q;
       if (error) throw error;
       res.json((data ?? []).map(flattenFichier));
@@ -688,10 +697,12 @@ router.post('/fichiers_pdf', authMiddleware, requireRole(adminAll),
   },
 );
 
-router.get('/fichiers_pdf/:id', authMiddleware, requireRole(adminAll),
+router.get('/fichiers_pdf/:id', authMiddleware, requireRole(allRoles),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
-      const { data, error } = await supabase.from('fichiers_pdf').select(FICHIER_SELECT).eq('id', req.params.id).single();
+      let q = supabase.from('fichiers_pdf').select(FICHIER_SELECT).eq('id', req.params.id);
+      if (!isPrivilegedRole(req.user!.role)) q = q.lte('niveau_accreditation', req.user!.niveau_accreditation);
+      const { data, error } = await q.single();
       if (error) throw error;
       res.json(flattenFichier(data as Record<string, unknown>));
     } catch (err) {
@@ -1381,11 +1392,9 @@ router.get('/photos', authMiddleware, requireRole(allRoles),
       return;
     }
     try {
-      const { data, error } = await supabase
-        .from('photosFichiersPoints')
-        .select(PHOTO_SELECT)
-        .eq('point_id', point_id)
-        .order('order', { ascending: true });
+      let pq = supabase.from('photosFichiersPoints').select(PHOTO_SELECT).eq('point_id', point_id).order('order', { ascending: true });
+      if (!isPrivilegedRole(req.user!.role)) pq = pq.lte('niveau_accreditation', req.user!.niveau_accreditation);
+      const { data, error } = await pq;
       if (error) throw error;
       const rows = (data ?? []).map((row: Record<string, unknown>) => ({
         ...row,

@@ -3,18 +3,7 @@ import { useAuth } from '@/context/AuthContext';
 import { ROLES } from '@/constants/roles';
 import { db, type Marker } from '@/api/database';
 import { Modal } from '@/components/Modal';
-
-const C = {
-  bg:      '#0E1117',
-  surface: '#161B27',
-  surface2:'#1C2333',
-  border:  '#232B3E',
-  text:    '#E8EDF5',
-  muted:   '#6B7A99',
-  accent:  '#378ADD',
-  danger:  '#E05252',
-  success: '#3DB07A',
-};
+import { C } from '@/constants/colors';
 
 const btn = (color = C.accent, outlined = false) => ({
   display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px',
@@ -112,7 +101,7 @@ function TagInput({ tags, onChange }: { tags: string[]; onChange: (t: string[]) 
       style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '6px 8px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 7, cursor: 'text', minHeight: 38 }}
     >
       {tags.map(t => (
-        <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', background: C.accent + '22', border: `1px solid ${C.accent}44`, borderRadius: 20, fontSize: 11, color: C.accent }}>
+        <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', background: C.accent22, border: `1px solid ${C.accent44}`, borderRadius: 20, fontSize: 11, color: C.accent }}>
           {t}
           <button type="button" onClick={e => { e.stopPropagation(); onChange(tags.filter(x => x !== t)); }}
             style={{ background: 'none', border: 'none', color: C.accent, cursor: 'pointer', padding: 0, lineHeight: 1, fontSize: 13 }}>×</button>
@@ -235,7 +224,7 @@ function MarkerModal({ initial, onSave, onClose }: {
               onDragLeave={() => setDragOver(false)}
               onDrop={onDrop}
               onClick={onClickZone}
-              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, height: 120, border: `2px dashed ${dragOver ? C.accent : C.border}`, borderRadius: 10, cursor: 'pointer', background: dragOver ? C.accent + '0A' : C.bg, transition: 'border-color .15s, background .15s', position: 'relative', overflow: 'hidden' }}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, height: 120, border: `2px dashed ${dragOver ? C.accent : C.border}`, borderRadius: 10, cursor: 'pointer', background: dragOver ? C.accent0a : C.bg, transition: 'border-color .15s, background .15s', position: 'relative', overflow: 'hidden' }}
             >
               {uploading ? (
                 <span style={{ fontSize: 12, color: C.muted }}>Upload en cours…</span>

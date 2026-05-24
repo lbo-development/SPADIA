@@ -1,22 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { ROLES } from '@/constants/roles';
 import { db, type PourValidation, type Marker, type FichierPdf, type Plan, type Calque } from '@/api/database';
 import { Modal } from '@/components/Modal';
-
-// ── Palette ───────────────────────────────────────────────────────────────────
-
-const C = {
-  bg:      '#0E1117',
-  surface: '#161B27',
-  surface2:'#1C2333',
-  border:  '#232B3E',
-  text:    '#E8EDF5',
-  muted:   '#6B7A99',
-  accent:  '#378ADD',
-  danger:  '#E05252',
-  success: '#3DB07A',
-  warning: '#D98C00',
-};
+import { C } from '@/constants/colors';
 
 // ── Styles partagés ───────────────────────────────────────────────────────────
 
@@ -237,7 +224,7 @@ function MarkerPickerDropdown({ markers, value, onChange }: {
                     <button key={m.id} type="button"
                       onClick={() => { onChange(m.storage_path, m.couleur); setOpen(false); setSearch(''); }}
                       style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '8px 4px',
-                        background: value === m.storage_path ? C.accent + '22' : C.surface,
+                        background: value === m.storage_path ? C.accent22 : C.surface,
                         border: `1px solid ${value === m.storage_path ? C.accent : C.border}`,
                         borderRadius: 8, cursor: 'pointer', transition: 'border-color .15s, background .15s' }}>
                       <ColoredSvgSmall url={m.public_url} color={m.couleur} size={32} />
@@ -514,7 +501,7 @@ function TraiterModal({ pv, onClose, onUpdated }: {
 
           {newFile && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
-              background: C.surface2, border: `1px solid ${C.success}44`, borderRadius: 10 }}>
+              background: C.surface2, border: `1px solid ${C.success44}`, borderRadius: 10 }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: C.success, flexShrink: 0 }} />
               <span style={{ flex: 1, fontSize: 13, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {newFilename}
@@ -628,6 +615,7 @@ function TraiterCalqueModal({ pv, onClose, onUpdated }: {
     zoom_min?: number | null; zoom_max?: number | null;
     template_champs?: { properties?: Record<string, unknown> } | null;
     niveau_accreditation?: number;
+    is_downloadable?: boolean;
   };
   const initTpl = initialPayload.template_champs;
 
@@ -635,9 +623,10 @@ function TraiterCalqueModal({ pv, onClose, onUpdated }: {
   const [description, setDescription] = useState(initialPayload.description ?? '');
   const [couleur,     setCouleur]     = useState(initialPayload.couleur ?? '#378ADD');
   const [nivelAccred, setNivelAccred] = useState(initialPayload.niveau_accreditation ?? 0);
-  const [zoomMin,     setZoomMin]     = useState<number | null>(initialPayload.zoom_min ?? null);
-  const [zoomMax,     setZoomMax]     = useState<number | null>(initialPayload.zoom_max ?? null);
-  const [iconePath,   setIconePath]   = useState<string | null>(null);
+  const [zoomMin,        setZoomMin]        = useState<number | null>(initialPayload.zoom_min ?? null);
+  const [zoomMax,        setZoomMax]        = useState<number | null>(initialPayload.zoom_max ?? null);
+  const [isDownloadable, setIsDownloadable] = useState(initialPayload.is_downloadable ?? false);
+  const [iconePath,      setIconePath]      = useState<string | null>(null);
   const [propsList,   setPropsList]   = useState<PropRow[]>(() => {
     if (!initTpl?.properties) return [];
     return Object.entries(initTpl.properties)
@@ -705,6 +694,7 @@ function TraiterCalqueModal({ pv, onClose, onUpdated }: {
           couleur:              couleur || null,
           zoom_min:             zoomMin,
           zoom_max:             zoomMax,
+          is_downloadable:      isDownloadable,
           template_champs,
           plan_id:              avecRattachement && planId  ? planId  : null,
           site_id:              avecRattachement && !planId ? (siteId || null) : null,
@@ -787,9 +777,20 @@ function TraiterCalqueModal({ pv, onClose, onUpdated }: {
 
       {/* Champs du calque */}
       <FormSection title="Informations du calque">
-        <div>
-          <Label>Nom *</Label>
-          <input value={nom} onChange={e => setNom(e.target.value)} placeholder="Nom du calque" style={inp} />
+        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <Label>Nom *</Label>
+            <input value={nom} onChange={e => setNom(e.target.value)} placeholder="Nom du calque" style={inp} />
+          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none', flexShrink: 0, height: 36 }}>
+            <div
+              onClick={() => setIsDownloadable(v => !v)}
+              style={{ width: 36, height: 20, borderRadius: 10, background: isDownloadable ? C.accent : C.border, position: 'relative', transition: 'background .2s', flexShrink: 0, cursor: 'pointer' }}
+            >
+              <div style={{ position: 'absolute', top: 3, left: isDownloadable ? 19 : 3, width: 14, height: 14, borderRadius: '50%', background: '#fff', transition: 'left .2s' }} />
+            </div>
+            <span style={{ fontSize: 13, color: C.text }}>{isDownloadable ? 'Téléchargeable' : 'Non téléchargeable'}</span>
+          </label>
         </div>
         <div>
           <Label>Description</Label>
@@ -1355,6 +1356,7 @@ function VoirEntityModal({ pv, onClose }: { pv: PourValidation; onClose: () => v
                     <InfoRow label="Icône"
                       value={<ColoredSvgSmall url={c.icone_public_url} color={c.icone_path ? (c.couleur || undefined) : (c.couleur || '#378ADD')} size={28} />} />
                   )}
+                  <InfoRow label="Téléchargeable" value={c.is_downloadable ? 'Oui' : 'Non'} />
                 </>;
               })()}
             </div>
@@ -1470,8 +1472,8 @@ function TabBtn({ value, count, active, onClick }: { value: Tab; count: number; 
       style={{
         display: 'flex', alignItems: 'center', gap: 7,
         padding: '6px 14px', borderRadius: 8, fontSize: 13, cursor: 'pointer',
-        background: active ? C.accent + '18' : 'transparent',
-        border: `1px solid ${active ? C.accent + '44' : C.border}`,
+        background: active ? C.accent18 : 'transparent',
+        border: `1px solid ${active ? C.accent44 : C.border}`,
         color: active ? C.accent : C.muted,
         fontWeight: active ? 600 : 400,
       }}
@@ -1507,7 +1509,7 @@ export default function ValiderDemandesPage() {
     );
   }
 
-  const isAdminApp = user?.role === 'Admin_app';
+  const isAdminApp = user?.role === ROLES.ADMIN_APP;
 
   useEffect(() => {
     setLoading(true);
@@ -1596,6 +1598,7 @@ export default function ValiderDemandesPage() {
                     key={pv.id}
                     pv={pv}
                     odd={i % 2 === 1}
+                    readOnly={!isAdminApp}
                     onTraiter={() => setSelected(pv)}
                   />
                 ))
@@ -1606,7 +1609,7 @@ export default function ValiderDemandesPage() {
       </div>
 
       {/* Modale traitement / consultation */}
-      {selected && selected.statut === 'Validé' ? (
+      {selected && (selected.statut === 'Validé' || !isAdminApp) ? (
         <VoirEntityModal pv={selected} onClose={() => setSelected(null)} />
       ) : selected && selected.entity_type === 'calque' ? (
         <TraiterCalqueModal
@@ -1657,7 +1660,7 @@ function CommentPopup({ text, onClose }: { text: string; onClose: () => void }) 
   );
 }
 
-function PvRow({ pv, odd, onTraiter }: { pv: PourValidation; odd: boolean; onTraiter: () => void }) {
+function PvRow({ pv, odd, readOnly, onTraiter }: { pv: PourValidation; odd: boolean; readOnly?: boolean; onTraiter: () => void }) {
   const [hover,        setHover]        = useState(false);
   const [showComment,  setShowComment]  = useState(false);
   const typeMeta = TYPE_META[pv.entity_type];
@@ -1667,7 +1670,7 @@ function PvRow({ pv, odd, onTraiter }: { pv: PourValidation; odd: boolean; onTra
     borderBottom: `1px solid ${C.border}`, verticalAlign: 'middle',
   };
 
-  const rowBg = hover ? C.accent + '08' : odd ? C.surface2 + '80' : 'transparent';
+  const rowBg = hover ? C.accent08 : odd ? C.surface280 : 'transparent';
 
   return (
     <tr
@@ -1742,13 +1745,13 @@ function PvRow({ pv, odd, onTraiter }: { pv: PourValidation; odd: boolean; onTra
             display: 'inline-flex', alignItems: 'center', gap: 5,
             padding: '6px 14px', borderRadius: 7, fontSize: 12, fontWeight: 500,
             cursor: 'pointer',
-            background: pv.statut === 'Validé' ? C.success + '18' : C.accent + '18',
-            border: `1px solid ${pv.statut === 'Validé' ? C.success + '44' : C.accent + '44'}`,
-            color: pv.statut === 'Validé' ? C.success : C.accent,
+            background: (pv.statut === 'Validé' || readOnly) ? C.success18 : C.accent18,
+            border: `1px solid ${(pv.statut === 'Validé' || readOnly) ? C.success44 : C.accent44}`,
+            color: (pv.statut === 'Validé' || readOnly) ? C.success : C.accent,
             transition: 'background .15s',
           }}
         >
-          {pv.statut === 'Validé' ? 'Voir' : 'Traiter'}
+          {pv.statut === 'Validé' || readOnly ? 'Voir' : 'Traiter'}
         </button>
       </td>
     </tr>

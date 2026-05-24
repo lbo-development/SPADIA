@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { C } from '@/constants/colors';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import axios from 'axios';
@@ -106,7 +107,7 @@ export default function LoginPage() {
                     <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
                   </svg>
                   <span style={{ flex: 1, textAlign: 'left', color: selected ? C.text : C.muted }}>
-                    {selected ? selected.nom : 'Choisir un utilisateur…'}
+                    {selected ? selected.nom : 'Nom d\'utilisateur'}
                   </span>
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={C.muted} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
                     style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s', flexShrink: 0 }}>
@@ -174,6 +175,8 @@ export default function LoginPage() {
               type="submit"
               disabled={!canSubmit}
               style={{ ...s.btn, opacity: canSubmit ? 1 : 0.45, cursor: canSubmit ? 'pointer' : 'not-allowed' }}
+              onMouseEnter={e => { if (canSubmit) { (e.currentTarget as HTMLButtonElement).style.background = 'var(--accent-hover)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 18px var(--accent-glow)'; } }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--accent)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 10px var(--accent-glow)'; }}
             >
               {loading ? 'Connexion…' : 'Se connecter'}
             </button>
@@ -186,11 +189,7 @@ export default function LoginPage() {
   );
 }
 
-const C = {
-  bg: '#0E1117', surface: '#161B27', surface2: '#1C2333',
-  border: '#232B3E', primary: '#185FA5', accent: '#378ADD',
-  text: '#E8EDF5', muted: '#6B7A99', error: '#E05252',
-};
+
 
 const s: Record<string, React.CSSProperties> = {
   root:       { minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden', fontFamily: '"Segoe UI", sans-serif' },
@@ -215,7 +214,7 @@ const s: Record<string, React.CSSProperties> = {
   pwdIcon:    { position: 'absolute', left: 12, fontSize: 14, color: C.muted, pointerEvents: 'none' },
   pwdInput:   { width: '100%', height: 40, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, paddingLeft: 36, paddingRight: 42, fontSize: 13, color: C.text, outline: 'none', boxSizing: 'border-box' },
   eye:        { position: 'absolute', right: 10, background: 'none', border: 'none', cursor: 'pointer', color: C.muted, padding: 4, display: 'flex', alignItems: 'center' },
-  err:        { background: '#2A1515', border: `1px solid ${C.error}44`, borderRadius: 6, padding: '10px 12px', fontSize: 12, color: C.error },
-  btn:        { width: '100%', height: 42, background: C.primary, border: 'none', borderRadius: 6, color: '#fff', fontSize: 14, fontWeight: 600, marginTop: 4, transition: 'opacity 0.15s' },
+  err:        { background: C.errorBg, border: `1px solid ${C.error44}`, borderRadius: 6, padding: '10px 12px', fontSize: 12, color: C.error },
+  btn:        { width: '100%', height: 44, background: C.accent, border: 'none', borderRadius: 7, color: '#fff', fontSize: 14, fontWeight: 600, letterSpacing: '0.01em', marginTop: 4, cursor: 'pointer', boxShadow: '0 2px 10px var(--accent-glow)', transition: 'background 0.15s, box-shadow 0.15s, opacity 0.15s' },
   footer:     { textAlign: 'center', fontSize: 11, color: C.muted },
 };

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { db } from '@/api/database';
 import { Modal } from '@/components/Modal';
+import { C } from '@/constants/colors';
 
 export type FieldDef = {
   key: string;
@@ -515,7 +516,7 @@ setRows(data as Row[]);
               type="button"
               onClick={() => setShowPassword(v => !v)}
               title={showPassword ? 'Masquer' : 'Afficher'}
-              style={{ position: 'absolute', right: 8, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#6B7A99', display: 'flex', alignItems: 'center' }}
+              style={{ position: 'absolute', right: 8, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: C.muted, display: 'flex', alignItems: 'center' }}
             >
               {showPassword ? (
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -648,7 +649,7 @@ setRows(data as Row[]);
               {sorted.length === 0 ? (
                 <tr><td colSpan={columns.length + 1} style={s.empty}>{search.trim() ? 'Aucun résultat' : 'Aucune donnée'}</td></tr>
               ) : sorted.map((row, i) => (
-                <tr key={row.id as string} style={{ background: i % 2 === 0 ? '#161B27' : '#1A2032' }}>
+                <tr key={row.id as string} style={{ background: i % 2 === 0 ? C.surface : C.surface2 }}>
                   {columns.map(col => (
                     <td key={col.key} style={s.td}>
                       {col.render ? col.render(row[col.key], row) : String(row[col.key] ?? '—')}
@@ -768,13 +769,6 @@ setRows(data as Row[]);
 
 // ── Design tokens + styles ───────────────────────────────────────────────────
 
-const C = {
-  bg: '#0E1117', surface: '#161B27', border: '#232B3E',
-  primary: '#185FA5', accent: '#378ADD',
-  text: '#E8EDF5', muted: '#6B7A99',
-  error: '#E05252', errorBg: '#2A1515', errorBorder: '#C0392B55',
-};
-
 const s: Record<string, React.CSSProperties> = {
   // ── Page ──
   root:      { height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' },
@@ -787,7 +781,7 @@ const s: Record<string, React.CSSProperties> = {
   addBtn:      { width: 34, height: 34, background: C.primary, border: 'none', borderRadius: '50%', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   reorderBtn:  { width: 34, height: 34, background: 'transparent', border: `1px solid ${C.border}`, borderRadius: '50%', color: C.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   reorderItem:     { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: C.surface, borderWidth: 1, borderStyle: 'solid' as const, borderColor: C.border, borderRadius: 8, cursor: 'grab', userSelect: 'none' as const, transition: 'border-color 0.1s, background 0.1s' },
-  reorderItemOver: { borderColor: C.accent, background: '#12213A' },
+  reorderItemOver: { borderColor: C.accent, background: C.reorderOver },
   reorderGrip:     { color: C.muted, flexShrink: 0, display: 'flex' },
   searchInput: { height: 34, padding: '0 12px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 7, fontSize: 13, color: C.text, outline: 'none', width: 220, boxSizing: 'border-box' as const },
 
@@ -795,10 +789,10 @@ const s: Record<string, React.CSSProperties> = {
 
   // ── Table ──
   loadWrap:    { display: 'flex', justifyContent: 'center', padding: 60 },
-  loadSpinner: { width: 24, height: 24, border: '2px solid #232B3E', borderTopColor: C.accent, borderRadius: '50%', animation: 'spin 0.7s linear infinite' },
+  loadSpinner: { width: 24, height: 24, border: `2px solid ${C.border}`, borderTopColor: C.accent, borderRadius: '50%', animation: 'spin 0.7s linear infinite' },
   tableWrap:   { flex: 1, overflowX: 'auto' as const, overflowY: 'auto' as const, borderRadius: 10, border: `1px solid ${C.border}` },
   table:       { width: '100%', borderCollapse: 'collapse' as const, fontSize: 13 },
-  th:          { padding: '10px 14px', background: '#1C2333', color: C.muted, fontWeight: 600, fontSize: 11, textTransform: 'uppercase' as const, letterSpacing: '0.06em', textAlign: 'left' as const, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' as const, position: 'sticky' as const, top: 0, zIndex: 2 },
+  th:          { padding: '10px 14px', background: C.surface2, color: C.muted, fontWeight: 600, fontSize: 11, textTransform: 'uppercase' as const, letterSpacing: '0.06em', textAlign: 'left' as const, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' as const, position: 'sticky' as const, top: 0, zIndex: 2 },
   thSortable:  { cursor: 'pointer', userSelect: 'none' as const },
   thActive:    { color: C.accent },
   td:          { padding: '10px 14px', color: C.text, borderBottom: `1px solid ${C.border}`, maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const },
@@ -834,7 +828,7 @@ const s: Record<string, React.CSSProperties> = {
 
   // ── Avatar ──
   avatarZone:    { display: 'flex', alignItems: 'center', gap: 18, padding: '14px 16px', background: C.bg, border: `1.5px dashed ${C.border}`, borderRadius: 10, transition: 'border-color 0.15s, background 0.15s' },
-  avatarZoneDrag:{ borderColor: C.accent, background: '#12213A' },
+  avatarZoneDrag:{ borderColor: C.accent, background: C.reorderOver },
   // Cercle 72×72 — position relative pour l'overlay de l'image
   avatarCircle:  { width: 72, height: 72, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' as const },
   avatarInits:   { fontSize: 22, fontWeight: 700, color: '#fff', letterSpacing: '-0.5px', userSelect: 'none' as const },
