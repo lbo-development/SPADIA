@@ -11,6 +11,13 @@ import 'leaflet/dist/leaflet.css';
 
 import { C } from '@/constants/colors';
 
+function safeColor(c: string): string {
+  return /^#[0-9a-fA-F]{3,8}$|^rgb\(\d+,\s*\d+,\s*\d+\)$/.test(c) ? c : '#333333';
+}
+function safeCssUrl(url: string): string {
+  return url.replace(/['"\\()]/g, '');
+}
+
 const PALETTE = ['#0078D4','#107C10','#D83B01','#5C2D91','#038387','#CA5010','#00B294','#B4009E'];
 function nameColor(name: string) {
   let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) | 0;
@@ -650,13 +657,14 @@ export default function CartoPage() {
       if (calque && calque.zoom_min !== null && zoom < calque.zoom_min) continue;
       if (calque && calque.zoom_max !== null && zoom > calque.zoom_max) continue;
       const rawColor = calque?.couleur ?? null;
-      const color    = rawColor ?? '#333';
+      const color    = safeColor(rawColor ?? '#333');
       const iconUrl  = calque?.icone_public_url;
       for (const p of pts) {
-        const iconHtml = iconUrl
+        const safeUrl = iconUrl ? safeCssUrl(iconUrl) : '';
+        const iconHtml = safeUrl
           ? rawColor
-            ? `<div style="width:20px;height:20px;background-color:${color};-webkit-mask-image:url(${iconUrl});mask-image:url(${iconUrl});-webkit-mask-size:contain;mask-size:contain;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;"></div>`
-            : `<img src="${iconUrl}" style="width:20px;height:20px;object-fit:contain;display:block;" />`
+            ? `<div style="width:20px;height:20px;background-color:${color};-webkit-mask-image:url(${safeUrl});mask-image:url(${safeUrl});-webkit-mask-size:contain;mask-size:contain;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;"></div>`
+            : `<img src="${safeUrl}" style="width:20px;height:20px;object-fit:contain;display:block;" />`
           : `<div style="width:12px;height:12px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.4);"></div>`;
         const icon = L.divIcon({
           html: `<div style="pointer-events:none;">${iconHtml}</div>`,
@@ -702,13 +710,14 @@ export default function CartoPage() {
       if (calquesVisible[calqueId] === false) continue;
       const calque = calquesList.find(c => c.id === calqueId);
       const rawColor = calque?.couleur ?? null;
-      const color    = rawColor ?? C.accent;
+      const color    = safeColor(rawColor ?? C.accent);
       const iconUrl  = calque?.icone_public_url;
       for (const p of pts) {
-        const iconHtml = iconUrl
+        const safeUrl = iconUrl ? safeCssUrl(iconUrl) : '';
+        const iconHtml = safeUrl
           ? rawColor
-            ? `<div style="width:20px;height:20px;background-color:${color};-webkit-mask-image:url(${iconUrl});mask-image:url(${iconUrl});-webkit-mask-size:contain;mask-size:contain;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;"></div>`
-            : `<img src="${iconUrl}" style="width:20px;height:20px;object-fit:contain;display:block;" />`
+            ? `<div style="width:20px;height:20px;background-color:${color};-webkit-mask-image:url(${safeUrl});mask-image:url(${safeUrl});-webkit-mask-size:contain;mask-size:contain;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;"></div>`
+            : `<img src="${safeUrl}" style="width:20px;height:20px;object-fit:contain;display:block;" />`
           : `<div style="width:12px;height:12px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.4);"></div>`;
         const icon = L.divIcon({ html: `<div style="pointer-events:none;">${iconHtml}</div>`, className: '', iconAnchor: [10, 10] });
         const isDraggableGeo = geoMoveMode && calqueId === calquesActif;

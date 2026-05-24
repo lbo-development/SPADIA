@@ -249,6 +249,15 @@ function PlanModal({ initial, siteOptions, installOptions, userOptions, onSave, 
 
 // ── SVG colorisé (marker preview) ────────────────────────────────────────────
 
+function sanitizeSvg(svg: string): string {
+  return svg
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/\s+on\w+\s*=\s*"[^"]*"/gi, '')
+    .replace(/\s+on\w+\s*=\s*'[^']*'/gi, '')
+    .replace(/(href|xlink:href)\s*=\s*["']javascript:[^"']*["']/gi, '')
+    .replace(/<foreignObject[\s\S]*?<\/foreignObject>/gi, '');
+}
+
 function ColoredSvgSmall({ url, color, size = 32 }: { url: string; color?: string | null; size?: number }) {
   const [raw, setRaw] = useState<string | null>(null);
 
@@ -265,9 +274,10 @@ function ColoredSvgSmall({ url, color, size = 32 }: { url: string; color?: strin
 
   const html = useMemo(() => {
     if (!raw) return '';
-    if (!color) return raw;
+    const safe = sanitizeSvg(raw);
+    if (!color) return safe;
     const skip = (v: string) => { const t = v.trim().toLowerCase(); return t === 'none' || t === 'transparent' || t.startsWith('url(') || t === 'white' || t === '#fff' || t === '#ffffff'; };
-    return raw
+    return safe
       .replace(/\bfill(?![-a-zA-Z])\s*:\s*([^;}"'\s]+)/gi, (_, val) => skip(val) ? `fill:${val}` : `fill:${color}`)
       .replace(/\bfill="([^"]*)"/gi, (_, val) => skip(val) ? `fill="${val}"` : `fill="${color}"`);
   }, [raw, color]);

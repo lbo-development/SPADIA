@@ -10,7 +10,7 @@ router.get('/users', async (_req: Request, res: Response): Promise<void> => {
   try {
     const { data, error } = await supabase
       .from('user_profiles')
-      .select('nom, email')
+      .select('nom')
       .order('nom', { ascending: true });
     if (error) throw error;
     res.json(data ?? []);
@@ -20,14 +20,28 @@ router.get('/users', async (_req: Request, res: Response): Promise<void> => {
 });
 
 router.post('/login', async (req: Request, res: Response): Promise<void> => {
-  const { email, password } = req.body;
+  const { nom, email: emailDirect, password } = req.body;
 
-  if (!email || !password) {
-    res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Email et mot de passe requis.', details: null } });
+  if ((!nom && !emailDirect) || !password) {
+    res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Identifiant et mot de passe requis.', details: null } });
     return;
   }
 
-  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+  let email = emailDirect as string | undefined;
+  if (!email && nom) {
+    const { data: found } = await supabase
+      .from('user_profiles')
+      .select('email')
+      .eq('nom', nom)
+      .single();
+    if (!found?.email) {
+      res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Identifiants incorrects.', details: null } });
+      return;
+    }
+    email = found.email as string;
+  }
+
+  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email: email!, password });
 
   if (authError || !authData?.user || !authData?.session) {
     res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Email ou mot de passe incorrect.', details: null } });

@@ -491,6 +491,19 @@ router.delete('/calques/:id', authMiddleware, requireRole(adminAll),
   },
 );
 
+function isValidSvgContent(buffer: Buffer): boolean {
+  const text = buffer.toString('utf8', 0, Math.min(buffer.length, 2000));
+  return /<svg[\s>]/i.test(text);
+}
+
+function hasDangerousSvgContent(buffer: Buffer): boolean {
+  const text = buffer.toString('utf8');
+  return /<script/i.test(text) ||
+         /\son\w+\s*=/i.test(text) ||
+         /(href|xlink:href)\s*=\s*["']javascript:/i.test(text) ||
+         /<foreignObject/i.test(text);
+}
+
 function parseSvgDimensions(buffer: Buffer): { width: number | null; height: number | null } {
   const text = buffer.toString('utf8');
   const tagMatch = text.match(/<svg([\s\S]*?)>/i);
@@ -521,6 +534,14 @@ router.post('/upload/svg', authMiddleware, requireRole(adminAll),
     }
     if (req.file.mimetype !== 'image/svg+xml') {
       res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Seul le format SVG est accepté.' } });
+      return;
+    }
+    if (!isValidSvgContent(req.file.buffer)) {
+      res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Fichier SVG invalide.' } });
+      return;
+    }
+    if (hasDangerousSvgContent(req.file.buffer)) {
+      res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Contenu SVG non autorisé.' } });
       return;
     }
     const { plan_id } = req.body;
@@ -1029,6 +1050,8 @@ router.post('/upload/marker', authMiddleware, requireRole(adminAll),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     if (!req.file) { res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Aucun fichier fourni.' } }); return; }
     if (req.file.mimetype !== 'image/svg+xml') { res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Seul le format SVG est accepté.' } }); return; }
+    if (!isValidSvgContent(req.file.buffer)) { res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Fichier SVG invalide.' } }); return; }
+    if (hasDangerousSvgContent(req.file.buffer)) { res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Contenu SVG non autorisé.' } }); return; }
     const safeName    = req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
     const storagePath = `Markers/${Date.now()}-${safeName}`;
     const { error: uploadError } = await supabaseAdmin.storage
@@ -1189,6 +1212,14 @@ router.post('/upload/svg_temp', authMiddleware, requireRole(allRoles),
     }
     if (req.file.mimetype !== 'image/svg+xml') {
       res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Seul le format SVG est accepté.' } });
+      return;
+    }
+    if (!isValidSvgContent(req.file.buffer)) {
+      res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Fichier SVG invalide.' } });
+      return;
+    }
+    if (hasDangerousSvgContent(req.file.buffer)) {
+      res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Contenu SVG non autorisé.' } });
       return;
     }
     const safeName    = req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');

@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import axios from 'axios';
 
-type UserEntry = { nom: string; email: string };
+type UserEntry = { nom: string };
 
 export default function LoginPage() {
   const [searchParams] = useSearchParams();
@@ -52,7 +52,7 @@ export default function LoginPage() {
     if (!selected) return;
     setError(null);
     try {
-      await login(selected.email, password);
+      await login(selected.nom, password);
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { error?: { message?: string } } } })
@@ -128,13 +128,13 @@ export default function LoginPage() {
                     )}
                     {users.map(u => (
                       <li
-                        key={u.email}
+                        key={u.nom}
                         onMouseDown={e => { e.preventDefault(); pick(u); }}
                         style={{
                           ...s.item,
-                          background:  selected?.email === u.email ? '#378ADD22' : 'transparent',
-                          color:       selected?.email === u.email ? C.accent : C.text,
-                          fontWeight:  selected?.email === u.email ? 600 : 400,
+                          background:  selected?.nom === u.nom ? '#378ADD22' : 'transparent',
+                          color:       selected?.nom === u.nom ? C.accent : C.text,
+                          fontWeight:  selected?.nom === u.nom ? 600 : 400,
                         }}
                       >
                         {u.nom}

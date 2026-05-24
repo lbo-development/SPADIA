@@ -12,7 +12,7 @@ interface AuthContextValue {
   user: UserProfile | null;
   isAuthenticated: boolean;
   loading: boolean;
-  login: (email: string, password: string) => Promise<UserProfile>;
+  login: (nom: string, password: string) => Promise<UserProfile>;
   logout: () => Promise<void>;
 }
 
@@ -23,10 +23,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading]             = useState(false);
 
-  const login = useCallback(async (email: string, password: string): Promise<UserProfile> => {
+  const login = useCallback(async (nom: string, password: string): Promise<UserProfile> => {
     setLoading(true);
     try {
-      const { data } = await apiClient.post<LoginResponse>('/auth/login', { email, password });
+      const { data } = await apiClient.post<LoginResponse>('/auth/login', { nom, password });
       setTokens(data.jwt, data.session_token);
       setUser(data.user);
       setIsAuthenticated(true);
