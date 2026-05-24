@@ -50,6 +50,6 @@ export const C = {
   success44: 'var(--success-44)',
   // ── Variantes alpha surface2 ─────────────────────────────────────────────────
   surface280: 'var(--surface2-80)',
-} as const;
+};
 
 export type ColorKey = keyof typeof C;
