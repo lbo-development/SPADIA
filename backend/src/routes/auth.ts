@@ -1,7 +1,16 @@
 import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
+import rateLimit from 'express-rate-limit';
 import { supabase } from '../supabase/client';
 import { authMiddleware, AuthenticatedRequest } from '../middlewares/auth';
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { code: 'RATE_LIMIT', message: 'Trop de tentatives. Réessayez dans 15 minutes.', details: null } },
+});
 
 const router = Router();
 const SESSION_DURATION_HOURS = parseInt(process.env.SESSION_DURATION_HOURS || '8', 10);
@@ -10,7 +19,7 @@ router.get('/users', async (_req: Request, res: Response): Promise<void> => {
   try {
     const { data, error } = await supabase
       .from('user_profiles')
-      .select('nom')
+      .select('id, nom')
       .order('nom', { ascending: true });
     if (error) throw error;
     res.json(data ?? []);
@@ -19,41 +28,38 @@ router.get('/users', async (_req: Request, res: Response): Promise<void> => {
   }
 });
 
-router.post('/login', async (req: Request, res: Response): Promise<void> => {
-  const { nom, email: emailDirect, password } = req.body;
+router.post('/login', loginLimiter, async (req: Request, res: Response): Promise<void> => {
+  const { userId, password } = req.body;
 
-  if ((!nom && !emailDirect) || !password) {
+  if (!userId || !password) {
     res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Identifiant et mot de passe requis.', details: null } });
     return;
   }
 
-  let email = emailDirect as string | undefined;
-  if (!email && nom) {
-    const { data: found } = await supabase
-      .from('user_profiles')
-      .select('email')
-      .eq('nom', nom)
-      .single();
-    if (!found?.email) {
-      res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Identifiants incorrects.', details: null } });
-      return;
-    }
-    email = found.email as string;
+  const { data: found } = await supabase
+    .from('user_profiles')
+    .select('email')
+    .eq('id', userId)
+    .single();
+
+  if (!found?.email) {
+    res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Identifiants incorrects.', details: null } });
+    return;
   }
 
-  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email: email!, password });
+  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email: found.email as string, password });
 
   if (authError || !authData?.user || !authData?.session) {
     res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Email ou mot de passe incorrect.', details: null } });
     return;
   }
 
-  const userId = authData.user.id;
+  const authUserId = authData.user.id;
 
   const { data: profile, error: profileError } = await supabase
     .from('user_profiles')
     .select('id, role, niveau_accreditation, nom, email, avatar_url, last_context, actif')
-    .eq('id', userId)
+    .eq('id', authUserId)
     .single();
 
   if (profileError || !profile) {
@@ -73,7 +79,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
   const { error: updateError } = await supabase
     .from('user_profiles')
     .update({ session_token: sessionToken, session_expires_at: sessionExpiresAt, last_activity_at: new Date().toISOString() })
-    .eq('id', userId);
+    .eq('id', authUserId);
 
   if (updateError) {
     console.error('[login] Update error:', updateError);

@@ -2,9 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { C } from '@/constants/colors';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import axios from 'axios';
+import { apiClient } from '@/api/client';
 
-type UserEntry = { nom: string };
+type UserEntry = { id: string; nom: string };
 
 export default function LoginPage() {
   const [searchParams] = useSearchParams();
@@ -16,7 +16,7 @@ export default function LoginPage() {
   const [fetchErr, setFetchErr] = useState(false);
 
   useEffect(() => {
-    axios.get<UserEntry[]>('/api/v1/auth/users')
+    apiClient.get<UserEntry[]>('/auth/users')
       .then(r => setUsers(r.data))
       .catch(() => setFetchErr(true));
   }, []);
@@ -52,7 +52,7 @@ export default function LoginPage() {
     if (!selected) return;
     setError(null);
     try {
-      await login(selected.nom, password);
+      await login(selected.id, password);
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { error?: { message?: string } } } })
