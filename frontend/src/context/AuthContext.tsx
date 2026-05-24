@@ -15,7 +15,7 @@ interface AuthContextValue {
   user: UserProfile | null;
   isAuthenticated: boolean;
   loading: boolean;
-  login: (userId: string, password: string) => Promise<UserProfile>;
+  login: (email: string, password: string) => Promise<UserProfile>;
   logout: () => Promise<void>;
 }
 
@@ -34,10 +34,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(() => !!loadStoredUser());
   const [loading, setLoading]                 = useState(false);
 
-  const login = useCallback(async (userId: string, password: string): Promise<UserProfile> => {
+  const login = useCallback(async (email: string, password: string): Promise<UserProfile> => {
     setLoading(true);
     try {
-      const { data } = await apiClient.post<LoginResponse>('/auth/login', { userId, password });
+      const { data } = await apiClient.post<LoginResponse>('/auth/login', { email, password });
       setTokens(data.jwt, data.session_token, data.refresh_token);
       sessionStorage.setItem(USER_KEY, JSON.stringify(data.user));
       setUser(data.user);

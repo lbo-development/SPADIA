@@ -1,9 +1,14 @@
 import { Router, Response } from 'express';
 import multer from 'multer';
+import createDOMPurify from 'dompurify';
+import { JSDOM } from 'jsdom';
 import { supabase } from '../supabase/client';
 import { supabaseAdmin } from '../supabase/adminClient';
 import { authMiddleware, AuthenticatedRequest } from '../middlewares/auth';
 import { requireRole, ROLES } from '../middlewares/roles';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const purify = createDOMPurify(new JSDOM('').window as any);
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -19,11 +24,26 @@ function isPrivilegedRole(role: string) {
   return role === ROLES.ADMIN_APP || role === ROLES.ADMIN_DATA || role === ROLES.VIEWER;
 }
 
+function pick(body: unknown, keys: string[]): Record<string, unknown> {
+  if (!body || typeof body !== 'object') return {};
+  const src = body as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const k of keys) { if (k in src) out[k] = src[k]; }
+  return out;
+}
+
+const WRITE_FIELDS: Record<string, string[]> = {
+  points_create: ['calque_id', 'nom', 'coord_x_ou_lon', 'coord_y_ou_lat', 'champs'],
+  points_update: ['nom', 'coord_x_ou_lon', 'coord_y_ou_lat', 'champs'],
+  photos_update: ['nom', 'order', 'description', 'niveau_accreditation'],
+};
+
 function crud(
   table: string,
   readRoles: typeof adminAll,
   writeRoles: typeof adminAll,
   selectFields = '*',
+  writeFields: string[] = [],
 ) {
   router.get(`/${table}`, authMiddleware, requireRole(readRoles),
     async (_req: AuthenticatedRequest, res: Response): Promise<void> => {
@@ -42,7 +62,8 @@ function crud(
   router.post(`/${table}`, authMiddleware, requireRole(writeRoles),
     async (req: AuthenticatedRequest, res: Response): Promise<void> => {
       try {
-        const { data, error } = await supabase.from(table).insert(req.body).select(selectFields).single();
+        const payload = writeFields.length ? pick(req.body, writeFields) : req.body;
+        const { data, error } = await supabase.from(table).insert(payload).select(selectFields).single();
         if (error) throw error;
         res.status(201).json(data);
       } catch (err) {
@@ -56,7 +77,7 @@ function crud(
     async (req: AuthenticatedRequest, res: Response): Promise<void> => {
       try {
         const { data, error } = await supabase
-          .from(table).update(req.body).eq('id', req.params.id).select(selectFields).single();
+          .from(table).update(writeFields.length ? pick(req.body, writeFields) : req.body).eq('id', req.params.id).select(selectFields).single();
         if (error) throw error;
         res.json(data);
       } catch (err) {
@@ -491,23 +512,30 @@ router.delete('/calques/:id', authMiddleware, requireRole(adminAll),
   },
 );
 
-function isValidSvgContent(buffer: Buffer): boolean {
-  const text = buffer.toString('utf8', 0, Math.min(buffer.length, 2000));
-  return /<svg[\s>]/i.test(text);
+function isSvgContent(buf: Buffer): boolean {
+  return buf.slice(0, 512).toString('utf8').toLowerCase().includes('<svg');
+}
+function isPdfContent(buf: Buffer): boolean {
+  return buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46;
+}
+function isPngContent(buf: Buffer): boolean {
+  return buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47;
+}
+function isImageContent(buf: Buffer): boolean {
+  // JPEG
+  if (buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF) return true;
+  // PNG
+  if (isPngContent(buf)) return true;
+  // GIF
+  if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x38) return true;
+  // WebP : RIFF????WEBP
+  if (buf.slice(0, 4).toString() === 'RIFF' && buf.slice(8, 12).toString() === 'WEBP') return true;
+  return false;
 }
 
 function sanitizeSvgBuffer(buffer: Buffer): Buffer {
-  let text = buffer.toString('utf8');
-  text = text
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/<!\[CDATA\[[\s\S]*?\]\]>/gi, '')
-    .replace(/<foreignObject[\s\S]*?<\/foreignObject>/gi, '')
-    .replace(/\s+on\w+\s*=\s*"[^"]*"/gi, '')
-    .replace(/\s+on\w+\s*=\s*'[^']*'/gi, '')
-    .replace(/\s+on\w+\s*=\s*[^\s/>][^\s/>]*/gi, '')
-    .replace(/(href|xlink:href|src|action)\s*=\s*"javascript:[^"]*"/gi, 'href="#"')
-    .replace(/(href|xlink:href|src|action)\s*=\s*'javascript:[^']*'/gi, "href='#'");
-  return Buffer.from(text, 'utf8');
+  const clean = purify.sanitize(buffer.toString('utf8'), { USE_PROFILES: { svg: true } });
+  return Buffer.from(clean, 'utf8');
 }
 
 function parseSvgDimensions(buffer: Buffer): { width: number | null; height: number | null } {
@@ -538,11 +566,7 @@ router.post('/upload/svg', authMiddleware, requireRole(adminAll),
       res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Aucun fichier fourni.' } });
       return;
     }
-    if (req.file.mimetype !== 'image/svg+xml') {
-      res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Seul le format SVG est accepté.' } });
-      return;
-    }
-    if (!isValidSvgContent(req.file.buffer)) {
+    if (!isSvgContent(req.file.buffer)) {
       res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Fichier SVG invalide.' } });
       return;
     }
@@ -778,7 +802,7 @@ router.post('/upload/pdf', authMiddleware, requireRole(adminAll),
       res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Aucun fichier fourni.' } });
       return;
     }
-    if (req.file.mimetype !== 'application/pdf') {
+    if (!isPdfContent(req.file.buffer)) {
       res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Seul le format PDF est accepté.' } });
       return;
     }
@@ -1052,8 +1076,7 @@ router.post('/upload/marker', authMiddleware, requireRole(adminAll),
   upload.single('file'),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     if (!req.file) { res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Aucun fichier fourni.' } }); return; }
-    if (req.file.mimetype !== 'image/svg+xml') { res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Seul le format SVG est accepté.' } }); return; }
-    if (!isValidSvgContent(req.file.buffer)) { res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Fichier SVG invalide.' } }); return; }
+    if (!isSvgContent(req.file.buffer)) { res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Fichier SVG invalide.' } }); return; }
     const cleanBuffer = sanitizeSvgBuffer(req.file.buffer);
     const safeName    = req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
     const storagePath = `Markers/${Date.now()}-${safeName}`;
@@ -1187,7 +1210,7 @@ router.post('/upload/pdf_temp', authMiddleware, requireRole(allRoles),
       res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Aucun fichier fourni.' } });
       return;
     }
-    if (req.file.mimetype !== 'application/pdf') {
+    if (!isPdfContent(req.file.buffer)) {
       res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Seul le format PDF est accepté.' } });
       return;
     }
@@ -1213,11 +1236,7 @@ router.post('/upload/svg_temp', authMiddleware, requireRole(allRoles),
       res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Aucun fichier fourni.' } });
       return;
     }
-    if (req.file.mimetype !== 'image/svg+xml') {
-      res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Seul le format SVG est accepté.' } });
-      return;
-    }
-    if (!isValidSvgContent(req.file.buffer)) {
+    if (!isSvgContent(req.file.buffer)) {
       res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Fichier SVG invalide.' } });
       return;
     }
@@ -1262,7 +1281,7 @@ router.post('/upload/avatar', authMiddleware, requireRole(adminApp),
       res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Aucun fichier fourni.' } });
       return;
     }
-    if (req.file.mimetype !== 'image/png') {
+    if (!isPngContent(req.file.buffer)) {
       res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Seul le format PNG est accepté.' } });
       return;
     }
@@ -1305,7 +1324,7 @@ router.get('/points', authMiddleware, requireRole(allRoles),
 router.post('/points', authMiddleware, requireRole(adminAll),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
-      const { data, error } = await supabase.from('points').insert(req.body).select('*').single();
+      const { data, error } = await supabase.from('points').insert(pick(req.body, WRITE_FIELDS.points_create)).select('*').single();
       if (error) throw error;
       res.status(201).json(data);
     } catch (err) {
@@ -1318,7 +1337,7 @@ router.post('/points', authMiddleware, requireRole(adminAll),
 router.patch('/points/:id', authMiddleware, requireRole(adminAll),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
-      const { data, error } = await supabase.from('points').update(req.body).eq('id', req.params.id).select('*').single();
+      const { data, error } = await supabase.from('points').update(pick(req.body, WRITE_FIELDS.points_update)).eq('id', req.params.id).select('*').single();
       if (error) throw error;
       res.json(data);
     } catch (err) {
@@ -1377,16 +1396,22 @@ router.post('/upload/photo', authMiddleware, requireRole(adminAll),
       res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'point_id requis.' } });
       return;
     }
-    if (!req.file.mimetype.startsWith('image/')) {
-      res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Seules les images sont acceptées.' } });
+    if (!isImageContent(req.file.buffer)) {
+      res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Seules les images JPEG/PNG/GIF/WebP sont acceptées.' } });
       return;
     }
-    const rawExt = req.file.originalname.split('.').pop()?.toLowerCase() ?? 'jpg';
-    const ext = ['jpg','jpeg','png','gif','webp','avif','svg'].includes(rawExt) ? rawExt : 'jpg';
+    const buf = req.file.buffer;
+    const detectedMime =
+      (buf[0] === 0xFF && buf[1] === 0xD8) ? 'image/jpeg' :
+      isPngContent(buf)                     ? 'image/png'  :
+      (buf[0] === 0x47 && buf[1] === 0x49)  ? 'image/gif'  :
+      'image/webp';
+    const extMap: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp' };
+    const ext = extMap[detectedMime] ?? 'jpg';
     const storagePath = `Photos/${point_id}/${Date.now()}.${ext}`;
     const { error: uploadError } = await supabaseAdmin.storage
       .from('Documents')
-      .upload(storagePath, req.file.buffer, { contentType: req.file.mimetype, upsert: false });
+      .upload(storagePath, req.file.buffer, { contentType: detectedMime, upsert: false });
     if (uploadError) {
       console.error('[upload/photo]', uploadError);
       res.status(500).json({ error: { code: 'STORAGE_ERROR', message: "Erreur upload image." } });
@@ -1453,7 +1478,7 @@ router.post('/upload/fichier_point', authMiddleware, requireRole(adminAll),
       res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'point_id requis.' } });
       return;
     }
-    if (req.file.mimetype !== 'application/pdf') {
+    if (!isPdfContent(req.file.buffer)) {
       res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Seul le format PDF est accepté.' } });
       return;
     }
@@ -1494,7 +1519,7 @@ router.patch('/photos/:id', authMiddleware, requireRole(adminAll),
     try {
       const { data, error } = await supabase
         .from('photosFichiersPoints')
-        .update(req.body)
+        .update(pick(req.body, WRITE_FIELDS.photos_update))
         .eq('id', req.params.id)
         .select(PHOTO_SELECT)
         .single();
