@@ -496,12 +496,18 @@ function isValidSvgContent(buffer: Buffer): boolean {
   return /<svg[\s>]/i.test(text);
 }
 
-function hasDangerousSvgContent(buffer: Buffer): boolean {
-  const text = buffer.toString('utf8');
-  return /<script/i.test(text) ||
-         /\son\w+\s*=/i.test(text) ||
-         /(href|xlink:href)\s*=\s*["']javascript:/i.test(text) ||
-         /<foreignObject/i.test(text);
+function sanitizeSvgBuffer(buffer: Buffer): Buffer {
+  let text = buffer.toString('utf8');
+  text = text
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<!\[CDATA\[[\s\S]*?\]\]>/gi, '')
+    .replace(/<foreignObject[\s\S]*?<\/foreignObject>/gi, '')
+    .replace(/\s+on\w+\s*=\s*"[^"]*"/gi, '')
+    .replace(/\s+on\w+\s*=\s*'[^']*'/gi, '')
+    .replace(/\s+on\w+\s*=\s*[^\s/>][^\s/>]*/gi, '')
+    .replace(/(href|xlink:href|src|action)\s*=\s*"javascript:[^"]*"/gi, 'href="#"')
+    .replace(/(href|xlink:href|src|action)\s*=\s*'javascript:[^']*'/gi, "href='#'");
+  return Buffer.from(text, 'utf8');
 }
 
 function parseSvgDimensions(buffer: Buffer): { width: number | null; height: number | null } {
@@ -540,27 +546,24 @@ router.post('/upload/svg', authMiddleware, requireRole(adminAll),
       res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Fichier SVG invalide.' } });
       return;
     }
-    if (hasDangerousSvgContent(req.file.buffer)) {
-      res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Contenu SVG non autorisé.' } });
-      return;
-    }
     const { plan_id } = req.body;
     if (!plan_id) {
       res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'plan_id requis.' } });
       return;
     }
+    const cleanBuffer = sanitizeSvgBuffer(req.file.buffer);
     // Chemin fixe par plan — upsert écrase le fichier précédent (annule et remplace)
     const storagePath = `Plans/${plan_id}/current.svg`;
     const { error: uploadError } = await supabaseAdmin.storage
       .from('Documents')
-      .upload(storagePath, req.file.buffer, { contentType: 'image/svg+xml', upsert: true });
+      .upload(storagePath, cleanBuffer, { contentType: 'image/svg+xml', upsert: true });
     if (uploadError) {
       console.error('[upload/svg]', uploadError);
       res.status(500).json({ error: { code: 'STORAGE_ERROR', message: "Erreur lors de l'upload SVG." } });
       return;
     }
     const { data: { publicUrl } } = supabaseAdmin.storage.from('Documents').getPublicUrl(storagePath);
-    const { width, height } = parseSvgDimensions(req.file.buffer);
+    const { width, height } = parseSvgDimensions(cleanBuffer);
     res.json({ url: publicUrl, path: storagePath, width, height });
   },
 );
@@ -1051,18 +1054,18 @@ router.post('/upload/marker', authMiddleware, requireRole(adminAll),
     if (!req.file) { res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Aucun fichier fourni.' } }); return; }
     if (req.file.mimetype !== 'image/svg+xml') { res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Seul le format SVG est accepté.' } }); return; }
     if (!isValidSvgContent(req.file.buffer)) { res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Fichier SVG invalide.' } }); return; }
-    if (hasDangerousSvgContent(req.file.buffer)) { res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Contenu SVG non autorisé.' } }); return; }
+    const cleanBuffer = sanitizeSvgBuffer(req.file.buffer);
     const safeName    = req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
     const storagePath = `Markers/${Date.now()}-${safeName}`;
     const { error: uploadError } = await supabaseAdmin.storage
-      .from('Documents').upload(storagePath, req.file.buffer, { contentType: 'image/svg+xml', upsert: false });
+      .from('Documents').upload(storagePath, cleanBuffer, { contentType: 'image/svg+xml', upsert: false });
     if (uploadError) {
       console.error('[upload/marker]', uploadError);
       res.status(500).json({ error: { code: 'STORAGE_ERROR', message: "Erreur lors de l'upload du marker." } });
       return;
     }
     const { data: { publicUrl } } = supabaseAdmin.storage.from('Documents').getPublicUrl(storagePath);
-    const color = parseSvgColor(req.file.buffer);
+    const color = parseSvgColor(cleanBuffer);
     res.json({ url: publicUrl, path: storagePath, color });
   },
 );
@@ -1218,16 +1221,13 @@ router.post('/upload/svg_temp', authMiddleware, requireRole(allRoles),
       res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Fichier SVG invalide.' } });
       return;
     }
-    if (hasDangerousSvgContent(req.file.buffer)) {
-      res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Contenu SVG non autorisé.' } });
-      return;
-    }
+    const cleanBuffer = sanitizeSvgBuffer(req.file.buffer);
     const safeName    = req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
     const slug        = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const storagePath = `En_attente/${slug}/${safeName}`;
     const { error: uploadError } = await supabaseAdmin.storage
       .from('Documents')
-      .upload(storagePath, req.file.buffer, { contentType: 'image/svg+xml', upsert: false });
+      .upload(storagePath, cleanBuffer, { contentType: 'image/svg+xml', upsert: false });
     if (uploadError) {
       console.error('[upload/svg_temp]', uploadError);
       res.status(500).json({ error: { code: 'STORAGE_ERROR', message: "Erreur lors de l'upload du fichier." } });

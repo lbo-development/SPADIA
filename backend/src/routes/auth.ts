@@ -13,7 +13,8 @@ const loginLimiter = rateLimit({
 });
 
 const router = Router();
-const SESSION_DURATION_HOURS = parseInt(process.env.SESSION_DURATION_HOURS || '8', 10);
+const SESSION_DURATION_HOURS  = parseInt(process.env.SESSION_DURATION_HOURS      || '8',  10);
+const INACTIVITY_MINUTES      = parseInt(process.env.SESSION_INACTIVITY_MINUTES  || '30', 10);
 
 router.get('/users', async (_req: Request, res: Response): Promise<void> => {
   try {
@@ -89,6 +90,7 @@ router.post('/login', loginLimiter, async (req: Request, res: Response): Promise
 
   res.status(200).json({
     jwt: authData.session.access_token,
+    refresh_token: authData.session.refresh_token,
     session_token: sessionToken,
     user: {
       id: profile.id,
@@ -100,6 +102,52 @@ router.post('/login', loginLimiter, async (req: Request, res: Response): Promise
       last_context: profile.last_context,
     },
   });
+});
+
+router.post('/refresh', async (req: Request, res: Response): Promise<void> => {
+  const { refresh_token } = req.body;
+  const sessionToken = req.headers['x-session-token'] as string | undefined;
+
+  if (!refresh_token || !sessionToken) {
+    res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Tokens manquants.', details: null } });
+    return;
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from('user_profiles')
+    .select('id, session_token, session_expires_at, last_activity_at, actif')
+    .eq('session_token', sessionToken)
+    .single();
+
+  if (profileError || !profile) {
+    res.status(401).json({ error: { code: 'SESSION_INVALIDATED', message: 'Session invalide.', details: null } });
+    return;
+  }
+  if (!profile.actif) {
+    res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Compte désactivé.', details: null } });
+    return;
+  }
+  if (profile.session_expires_at && new Date(profile.session_expires_at) < new Date()) {
+    res.status(401).json({ error: { code: 'SESSION_EXPIRED', message: 'Session expirée.', details: null } });
+    return;
+  }
+  if (profile.last_activity_at) {
+    const diff = (Date.now() - new Date(profile.last_activity_at).getTime()) / 1000 / 60;
+    if (diff > INACTIVITY_MINUTES) {
+      res.status(401).json({ error: { code: 'SESSION_EXPIRED', message: 'Session expirée par inactivité.', details: null } });
+      return;
+    }
+  }
+
+  const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession({ refresh_token });
+  if (refreshError || !refreshData.session) {
+    res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Impossible de renouveler le token.', details: null } });
+    return;
+  }
+
+  await supabase.from('user_profiles').update({ last_activity_at: new Date().toISOString() }).eq('id', profile.id);
+
+  res.json({ jwt: refreshData.session.access_token, refresh_token: refreshData.session.refresh_token });
 });
 
 router.post('/logout', authMiddleware, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
