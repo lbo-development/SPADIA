@@ -92,9 +92,7 @@ export default function LoginPage() {
                 <input
                   id="pwd"
                   type={showPwd ? 'text' : 'password'}
-                  autoComplete="one-time-code"
-                  readOnly
-                  onFocus={e => e.currentTarget.removeAttribute('readonly')}
+                  autoComplete="new-password"
                   placeholder="••••••••"
                   value={password}
                   disabled={loading}
