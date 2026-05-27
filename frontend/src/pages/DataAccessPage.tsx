@@ -137,7 +137,7 @@ function QuickRow({ label, value, onChange, options, onOpen, last = false }: {
 }
 
 const s: Record<string, React.CSSProperties> = {
-  root: { minHeight: '100vh', background: C.bg, fontFamily: '"Segoe UI", sans-serif' },
+  root: { minHeight: '100vh', background: C.bg },
   nav: { height: 48, background: C.bg, borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 12, padding: '0 16px', position: 'sticky', top: 0, zIndex: 100 },
   logoMark: { fontSize: 16, color: C.accent },
   logoText: { fontSize: 14, fontWeight: 700, color: C.text, letterSpacing: '0.1em' },

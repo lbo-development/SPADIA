@@ -4,46 +4,7 @@ import { ROLES } from '@/constants/roles';
 import { db, type PourValidation, type Marker, type FichierPdf, type Plan, type Calque } from '@/api/database';
 import { Modal } from '@/components/Modal';
 import { C } from '@/constants/colors';
-
-// ── Styles partagés ───────────────────────────────────────────────────────────
-
-const inp: React.CSSProperties = {
-  width: '100%', padding: '8px 11px', background: C.bg, border: `1px solid ${C.border}`,
-  borderRadius: 7, fontSize: 13, color: C.text, outline: 'none', boxSizing: 'border-box',
-};
-
-const btnStyle = (color = C.accent, outlined = false): React.CSSProperties => ({
-  display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px',
-  borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer',
-  background: outlined ? 'transparent' : color,
-  border: `1px solid ${outlined ? C.border : color}`,
-  color: outlined ? C.muted : '#fff',
-});
-
-function Label({ children }: { children: React.ReactNode }) {
-  return <label style={{ fontSize: 12, color: C.muted, display: 'block', marginBottom: 5 }}>{children}</label>;
-}
-
-function FormSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div style={{ marginBottom: 20 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-        <span style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>{title}</span>
-        <div style={{ flex: 1, height: 1, background: C.border }} />
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{children}</div>
-    </div>
-  );
-}
-
-function Spinner() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
-      style={{ animation: 'spin 0.7s linear infinite', flexShrink: 0 }}>
-      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-    </svg>
-  );
-}
+import { inputStyle as inp, btnStyle, Label, FormSection, Spinner } from '@/components/ui';
 
 // ── Types locaux ──────────────────────────────────────────────────────────────
 

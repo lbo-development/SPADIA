@@ -72,7 +72,7 @@ export default function UtilisateursPage() {
 
   if (user?.role !== ROLES.ADMIN_APP) {
     return (
-      <div style={{ padding: 40, color: '#6B7A99', fontFamily: '"Segoe UI", sans-serif' }}>
+      <div style={{ padding: 40, color: '#6B7A99' }}>
         Accès réservé à Admin_app.
       </div>
     );

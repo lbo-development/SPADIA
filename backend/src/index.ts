@@ -1,13 +1,11 @@
+import './env'; // must be first — loads .env before any module reads process.env
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import dotenv from 'dotenv';
 import path from 'path';
 import authRouter from './routes/auth';
 import dashboardRouter from './routes/dashboard';
 import databaseRouter from './routes/database';
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;

@@ -162,10 +162,10 @@ function NodeIcon({ type, open }: { type: TreeNode['type']; open?: boolean }) {
   const color = ICON_COLOR[type] ?? C.muted;
   const p = { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: color, strokeWidth: '1.8', strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
   switch (type) {
-    case 'site':         return <svg {...p}><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
-    case 'installation': return <svg {...p}><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>;
+    case 'site':         return <svg {...p}><rect x="2" y="2" width="14" height="14" rx="2"/><line x1="2" y1="9" x2="9" y2="2"/><line x1="7" y1="16" x2="16" y2="7"/><path d="M17.5 22C14.5 19 14 17 14 15.5a3.5 3.5 0 0 1 7 0C21 17 20.5 19 17.5 22Z"/><circle cx="17.5" cy="15.5" r="1.2" fill={color} stroke="none"/></svg>;
+    case 'installation': return <svg {...p}><path d="M12 22C8.5 18 4 13.5 4 9.5a8 8 0 0 1 16 0C20 13.5 15.5 18 12 22Z"/><circle cx="12" cy="9.5" r="5.2"/><path d="M10 14V8h4v6M11 14v-2.5h2V14"/></svg>;
     case 'plan':
-      return <span style={{ fontSize: 9, fontWeight: 800, color: '#fff', background: color, borderRadius: 2, padding: '0 3px', lineHeight: '14px', fontFamily: '"Segoe UI",Arial,sans-serif', letterSpacing: '0.04em', display: 'inline-block', flexShrink: 0 }}>SVG</span>;
+      return <span style={{ fontSize: 9, fontWeight: 800, color: '#fff', background: color, borderRadius: 2, padding: '0 3px', lineHeight: '14px', fontFamily: 'inherit', letterSpacing: '0.04em', display: 'inline-block', flexShrink: 0 }}>SVG</span>;
     case 'dossier':
       return open ? (
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -181,7 +181,7 @@ function NodeIcon({ type, open }: { type: TreeNode['type']; open?: boolean }) {
       );
     case 'calque':       return <svg {...p}><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>;
     case 'fichier':
-      return <span style={{ fontSize: 9, fontWeight: 800, color: '#fff', background: color, borderRadius: 2, padding: '0 3px', lineHeight: '14px', fontFamily: '"Segoe UI",Arial,sans-serif', letterSpacing: '0.04em', display: 'inline-block', flexShrink: 0 }}>PDF</span>;
+      return <span style={{ fontSize: 9, fontWeight: 800, color: '#fff', background: color, borderRadius: 2, padding: '0 3px', lineHeight: '14px', fontFamily: 'inherit', letterSpacing: '0.04em', display: 'inline-block', flexShrink: 0 }}>PDF</span>;
     default:             return null;
   }
 }
@@ -1063,7 +1063,7 @@ export default function CartoPage() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div style={{ height: viewportHeight, background: C.bg, fontFamily: '"Segoe UI", sans-serif', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{ height: viewportHeight, background: C.bg, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
       {/* ── HEADER ── */}
       <AppNav />
@@ -1758,7 +1758,6 @@ export default function CartoPage() {
         <aside style={{ width: 48, background: C.surface, borderLeft: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '8px 0', flexShrink: 0 }}>
 
           {/* Fond de carte */}
-          <span style={{ fontSize: 9, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Fond</span>
           <button onClick={() => switchBasemap('plan')} title="Vue Plan" style={{ ...s.toolBtn, background: basemap === 'plan' ? C.accent : 'transparent', color: basemap === 'plan' ? '#fff' : C.muted }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
@@ -1777,10 +1776,9 @@ export default function CartoPage() {
           </button>
 
           {/* Séparateur */}
-          <div style={{ width: 28, height: 1, background: C.border, margin: '6px 0' }} />
+          <div style={{ width: 28, height: 1, background: C.muted, margin: '6px 0', opacity: 0.4 }} />
 
           {/* Zoom */}
-          <span style={{ fontSize: 9, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Zoom</span>
           <button onClick={() => planViewer ? planMapRef.current?.zoomIn() : mapRef.current?.zoomIn()} title="Zoom +" style={s.toolBtn}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -1927,7 +1925,7 @@ export default function CartoPage() {
 
 const s: Record<string, React.CSSProperties> = {
   navBtn:  { height: 28, padding: '0 12px', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 5, cursor: 'pointer', fontSize: 11, color: C.muted },
-  toolBtn:     { width: 40, height: 40, background: 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: C.muted, transition: 'background 0.15s, color 0.15s', fontFamily: '"Segoe UI", sans-serif' },
+  toolBtn:     { width: 40, height: 40, background: 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: C.muted, transition: 'background 0.15s, color 0.15s' },
   treeCtrlBtn: { width: 22, height: 22, background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.muted, flexShrink: 0, padding: 0 },
   planZoomBtn:  { width: 26, height: 26, background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.muted, flexShrink: 0, padding: 0, fontSize: 14 },
   panelIconBtn: { width: 26, height: 26, background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.muted, flexShrink: 0, padding: 0 },

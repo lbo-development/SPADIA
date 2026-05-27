@@ -3,6 +3,15 @@ import { C } from '@/constants/colors';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 
+function IconLock() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+    </svg>
+  );
+}
+
 export default function LoginPage() {
   const [searchParams] = useSearchParams();
   const { login, loading } = useAuth();
@@ -79,7 +88,7 @@ export default function LoginPage() {
             <div style={s.field}>
               <label htmlFor="pwd" style={s.label}>Mot de passe</label>
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <span style={s.fieldIcon}>⬡</span>
+                <span style={s.fieldIcon}><IconLock /></span>
                 <input
                   id="pwd"
                   type={showPwd ? 'text' : 'password'}
@@ -106,9 +115,8 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={!canSubmit}
+              className="btn-primary"
               style={{ ...s.btn, opacity: canSubmit ? 1 : 0.45, cursor: canSubmit ? 'pointer' : 'not-allowed' }}
-              onMouseEnter={e => { if (canSubmit) { e.currentTarget.style.background = 'var(--accent-hover)'; e.currentTarget.style.boxShadow = '0 4px 18px var(--accent-glow)'; } }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'var(--accent)'; e.currentTarget.style.boxShadow = '0 2px 10px var(--accent-glow)'; }}
             >
               {loading ? 'Connexion…' : 'Se connecter'}
             </button>
@@ -122,25 +130,25 @@ export default function LoginPage() {
 }
 
 const s: Record<string, React.CSSProperties> = {
-  root:      { minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden', fontFamily: '"Segoe UI", sans-serif' },
+  root:      { minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' },
   grid:      { position: 'absolute', inset: 0, backgroundImage: `linear-gradient(rgba(255,255,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.03) 1px,transparent 1px)`, backgroundSize: '48px 48px', pointerEvents: 'none' },
-  accentBar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: `linear-gradient(180deg,transparent,${C.primary} 30%,${C.accent} 70%,transparent)`, pointerEvents: 'none' },
+  accentBar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: `linear-gradient(180deg,transparent,var(--primary) 30%,var(--accent) 70%,transparent)`, pointerEvents: 'none' },
   main:      { position: 'relative', zIndex: 1, width: '100%', maxWidth: 400, padding: '24px 16px', display: 'flex', flexDirection: 'column', gap: 24 },
   header:    { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 },
   logoWrap:  { display: 'flex', alignItems: 'center', gap: 10 },
-  logoText:  { fontSize: 26, fontWeight: 700, color: '#2D6A27', letterSpacing: '0.12em' },
+  logoText:  { fontSize: 26, fontWeight: 700, color: 'var(--brand-green)', letterSpacing: '0.12em' },
   tagline:   { fontSize: 12, color: C.muted, margin: 0, textAlign: 'center' },
-  hi:        { fontSize: 13.5, fontWeight: 700, color: '#2D6A27' },
-  card:      { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: '28px 28px 24px', display: 'flex', flexDirection: 'column', gap: 20 },
-  banner:    { background: '#241C0A', border: '1px solid #C9860A44', borderRadius: 6, padding: '10px 12px', fontSize: 12, color: '#C9860A' },
+  hi:        { fontSize: 13.5, fontWeight: 700, color: 'var(--brand-green)' },
+  card:      { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 'var(--r-xl)' as unknown as number, padding: '28px 28px 24px', display: 'flex', flexDirection: 'column', gap: 20 },
+  banner:    { background: 'var(--warning-bg)', border: '1px solid var(--warning-border)', borderRadius: 'var(--r-md)' as unknown as number, padding: '10px 12px', fontSize: 12, color: 'var(--warning)' },
   title:     { margin: 0, fontSize: 18, fontWeight: 600, color: C.text },
   form:      { display: 'flex', flexDirection: 'column', gap: 16 },
   field:     { display: 'flex', flexDirection: 'column', gap: 6 },
   label:     { fontSize: 12, fontWeight: 500, color: C.muted },
   fieldIcon: { position: 'absolute', left: 12, width: 14, height: 14, color: C.muted, pointerEvents: 'none' } as React.CSSProperties,
-  textInput: { width: '100%', height: 40, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, paddingLeft: 36, paddingRight: 12, fontSize: 13, color: C.text, outline: 'none', boxSizing: 'border-box' } as React.CSSProperties,
+  textInput: { width: '100%', height: 40, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 'var(--r-md)' as unknown as number, paddingLeft: 36, paddingRight: 12, fontSize: 13, color: C.text, outline: 'none', boxSizing: 'border-box' } as React.CSSProperties,
   eye:       { position: 'absolute', right: 10, background: 'none', border: 'none', cursor: 'pointer', color: C.muted, padding: 4, display: 'flex', alignItems: 'center' },
-  err:       { background: C.errorBg, border: `1px solid ${C.error44}`, borderRadius: 6, padding: '10px 12px', fontSize: 12, color: C.error },
-  btn:       { width: '100%', height: 44, background: C.accent, border: 'none', borderRadius: 7, color: '#fff', fontSize: 14, fontWeight: 600, letterSpacing: '0.01em', marginTop: 4, cursor: 'pointer', boxShadow: '0 2px 10px var(--accent-glow)', transition: 'background 0.15s, box-shadow 0.15s, opacity 0.15s' },
+  err:       { background: C.errorBg, border: `1px solid ${C.error44}`, borderRadius: 'var(--r-md)' as unknown as number, padding: '10px 12px', fontSize: 12, color: C.error },
+  btn:       { width: '100%', height: 44, background: C.accent, border: 'none', borderRadius: 'var(--r-lg)' as unknown as number, color: '#fff', fontSize: 14, fontWeight: 600, letterSpacing: '0.01em', marginTop: 4, cursor: 'pointer', boxShadow: 'var(--shadow-accent)' },
   footer:    { textAlign: 'center', fontSize: 11, color: C.muted },
 };

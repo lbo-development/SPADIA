@@ -149,8 +149,30 @@ function MarkerModal({ initial, onSave, onClose }: {
   const [dragOver,  setDragOver]  = useState(false);
   const [err,       setErr]       = useState('');
 
+  function validateSvgCompatibility(text: string): string[] {
+    const errors: string[] = [];
+    if (/<style[\s>]/i.test(text)) {
+      errors.push('Le SVG contient un bloc <style> — les couleurs CSS ne sont pas prises en charge. Utilisez fill="currentColor" directement sur les formes.');
+    }
+    const shapeWithFill = /<(path|polygon|circle|rect|ellipse|polyline|line)[^>]*fill\s*=/i.test(text);
+    const hasCurrentColor = /fill\s*=\s*["']?currentColor/i.test(text);
+    if (!shapeWithFill && !hasCurrentColor) {
+      errors.push('Aucun attribut fill= trouvé sur les formes — la couleur ne pourra pas être modifiée. Ajoutez fill="currentColor" sur chaque forme.');
+    }
+    // Detect opaque background: a rect/path that fills the full viewBox without transparency
+    const bgRect = /<rect[^>]*(?:width\s*=\s*["']?100%|width\s*=\s*["']?\d{2,})[^>]*>/i.test(text)
+      || /<rect[^>]*(?:x\s*=\s*["']?0)[^>]*(?:width\s*=\s*["']?(?:100%|\d{2,}))[^>]*>/i.test(text);
+    if (bgRect) {
+      errors.push('Le SVG semble avoir un fond opaque (rect couvrant toute la surface) — supprimez le rectangle de fond pour un fond transparent.');
+    }
+    return errors;
+  }
+
   async function handleFile(file: File) {
     if (file.type !== 'image/svg+xml') { setErr('Seul le format SVG est accepté.'); return; }
+    const text = await file.text();
+    const issues = validateSvgCompatibility(text);
+    if (issues.length > 0) { setErr(issues.join('\n')); return; }
     setUploading(true); setErr('');
     try {
       const { data } = await db.uploadMarker(file);
