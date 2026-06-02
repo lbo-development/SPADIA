@@ -144,7 +144,7 @@ router.get('/data', authMiddleware, async (req: AuthenticatedRequest, res: Respo
         .from('pour_validation').select(PV_DASH_SELECT)
         .order('date_propose', { ascending: false });
       if (error) throw error;
-      soumis = (data ?? []).map(r => flattenPVDash(r as Record<string, unknown>));
+      soumis = (data ?? []).map(r => flattenPVDash(r as unknown as Record<string, unknown>));
     }
 
     // 3. Admin_data : soumissions assignées à sa validation (En attente / A compléter)
@@ -156,7 +156,7 @@ router.get('/data', authMiddleware, async (req: AuthenticatedRequest, res: Respo
         .in('statut', ['En attente', 'A compléter'])
         .order('date_propose', { ascending: false });
       if (error) throw error;
-      aValider = (data ?? []).map(r => flattenPVDash(r as Record<string, unknown>));
+      aValider = (data ?? []).map(r => flattenPVDash(r as unknown as Record<string, unknown>));
     }
 
     // 4. Mes demandes (proposedby = moi, tous statuts)
@@ -165,7 +165,7 @@ router.get('/data', authMiddleware, async (req: AuthenticatedRequest, res: Respo
       .eq('proposedby_id', userId)
       .order('date_propose', { ascending: false });
     if (demErr) throw demErr;
-    const mesDemandes = (demRaw ?? []).map(r => flattenPVDash(r as Record<string, unknown>));
+    const mesDemandes = (demRaw ?? []).map(r => flattenPVDash(r as unknown as Record<string, unknown>));
 
     // 5. Mes calques (owner = moi)
     const { data: calquesRaw, error: calErr } = await supabase
@@ -173,7 +173,7 @@ router.get('/data', authMiddleware, async (req: AuthenticatedRequest, res: Respo
       .eq('owner_id', userId)
       .order('created_at', { ascending: false });
     if (calErr) throw calErr;
-    const mesCalques = (calquesRaw ?? []).map(r => flattenCalqueDash(r as Record<string, unknown>));
+    const mesCalques = (calquesRaw ?? []).map(r => flattenCalqueDash(r as unknown as Record<string, unknown>));
 
     res.json({ favoris: favoris ?? [], soumis, aValider, mesDemandes, mesCalques });
   } catch (err) {
