@@ -50,8 +50,8 @@ export default function LoginPage() {
             <span style={s.logoText}>SPADIA</span>
           </div>
           <p style={s.tagline}>
-            <span style={s.hi}>S</span>ystème <span style={s.hi}>PA</span>rtagé de{' '}
-            <span style={s.hi}>DI</span>gitalisation des <span style={s.hi}>A</span>ssets
+            <span style={s.hi}>S</span>ystème de <span style={s.hi}>PA</span>rtage de la{' '}
+            <span style={s.hi}>DI</span>gitalisation des <span style={s.hi}>A</span>ctifs
           </p>
         </header>
 
@@ -61,8 +61,7 @@ export default function LoginPage() {
           <h1 style={s.title}>Connexion</h1>
 
           <form onSubmit={handleSubmit} noValidate autoComplete="off" style={s.form}>
-            <input type="text"     style={{ display: 'none' }} aria-hidden="true" readOnly />
-            <input type="password" style={{ display: 'none' }} aria-hidden="true" readOnly />
+            <input type="text" style={{ display: 'none' }} aria-hidden="true" readOnly />
 
             {/* ── email ── */}
             <div style={s.field}>
@@ -75,6 +74,8 @@ export default function LoginPage() {
                   id="email"
                   type="email"
                   autoComplete="off"
+                  data-form-type="other"
+                  data-lpignore="true"
                   placeholder="prenom.nom@domaine.fr"
                   value={email}
                   disabled={loading}
@@ -91,13 +92,16 @@ export default function LoginPage() {
                 <span style={s.fieldIcon}><IconLock /></span>
                 <input
                   id="pwd"
-                  type={showPwd ? 'text' : 'password'}
-                  autoComplete="new-password"
+                  type="text"
+                  inputMode="text"
+                  autoComplete="off"
+                  data-form-type="other"
+                  data-lpignore="true"
                   placeholder="••••••••"
                   value={password}
                   disabled={loading}
                   onChange={e => setPassword(e.target.value)}
-                  style={{ ...s.textInput, paddingRight: 42 }}
+                  style={{ ...s.textInput, paddingRight: 42, WebkitTextSecurity: showPwd ? 'none' : 'disc' } as React.CSSProperties}
                 />
                 <button type="button" onClick={() => setShowPwd(v => !v)} style={s.eye}>
                   {showPwd

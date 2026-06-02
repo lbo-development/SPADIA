@@ -6,6 +6,7 @@ import path from 'path';
 import authRouter from './routes/auth';
 import dashboardRouter from './routes/dashboard';
 import databaseRouter from './routes/database';
+import favorisRouter from './routes/favoris';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -45,6 +46,7 @@ app.get('/api/v1/health', (_req, res) => {
 app.use('/api/v1/auth',      authRouter);
 app.use('/api/v1/dashboard', dashboardRouter);
 app.use('/api/v1/database',  databaseRouter);
+app.use('/api/v1/favoris',   favorisRouter);
 
 if (isProd) {
   const staticPath = path.join(__dirname, '..', 'public');

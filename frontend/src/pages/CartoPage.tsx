@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { ROLES } from '@/constants/roles';
 import AppNav from '@/components/AppNav';
 import { db } from '@/api/database';
-import type { Plan, FichierPdf, Calque, Point, Photo } from '@/api/database';
+import type { Plan, FichierPdf, Calque, Point, Photo, Favori } from '@/api/database';
 import * as XLSX from 'xlsx';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -332,6 +332,21 @@ function SidebarToggle({ open, onClick }: { open: boolean; onClick: () => void }
   );
 }
 
+function findNodeLabel(nodes: TreeNode[], id: string): string | null {
+  for (const n of nodes) {
+    if (n.id === id) return n.label;
+    if (n.children) { const r = findNodeLabel(n.children, id); if (r) return r; }
+  }
+  return null;
+}
+function findNodeType(nodes: TreeNode[], id: string): string | null {
+  for (const n of nodes) {
+    if (n.id === id) return n.type;
+    if (n.children) { const r = findNodeType(n.children, id); if (r) return r; }
+  }
+  return null;
+}
+
 export default function CartoPage() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -341,6 +356,13 @@ export default function CartoPage() {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef          = useRef<L.Map | null>(null);
   const tileLayerRef    = useRef<L.TileLayer | null>(null);
+
+  const location = useLocation();
+  const pendingNavRef = useRef<{ nodeId: string; expanded: string[] } | null>(
+    (location.state as { nodeId?: string; expanded?: string[] } | null)?.nodeId
+      ? { nodeId: (location.state as { nodeId: string; expanded: string[] }).nodeId, expanded: (location.state as { nodeId: string; expanded: string[] }).expanded ?? [] }
+      : null
+  );
 
   const [tree,     setTree]     = useState<TreeNode[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -417,6 +439,14 @@ export default function CartoPage() {
   const [calquesActif,        setCalquesActif]        = useState<string | null>(null);
   const [geoCalquesDropOpen,  setGeoCalquesDropOpen]  = useState(false);
   const [planCalquesDropOpen, setPlanCalquesDropOpen] = useState(false);
+
+  const [favoris,        setFavoris]        = useState<Favori[]>([]);
+  const [favorisPanelOpen, setFavorisPanelOpen] = useState(false);
+  const [favorisSaving,  setFavorisSaving]  = useState(false);
+  const [favorisNewLabel, setFavorisNewLabel] = useState('');
+  const [favorisAddOpen,  setFavorisAddOpen]  = useState(false);
+  const [favorisRenaming, setFavorisRenaming] = useState<string | null>(null);
+  const [favorisRenameVal, setFavorisRenameVal] = useState('');
 
   const isAdminAppOrData      = user?.role === ROLES.ADMIN_APP || user?.role === ROLES.ADMIN_DATA;
   const canEditGeo            = isAdminAppOrData || (calquesList.find(c => c.id === calquesActif)?.owner_id === user?.id);
@@ -540,6 +570,51 @@ export default function CartoPage() {
     })();
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    db.listFavoris().then(r => setFavoris(r.data)).catch(() => {});
+  }, []);
+
+  // Applique la navigation entrante (depuis tableau de bord) une fois l'arbre chargé
+  useEffect(() => {
+    if (tree.length === 0 || !pendingNavRef.current) return;
+    const { nodeId, expanded: ids } = pendingNavRef.current;
+    pendingNavRef.current = null;
+    setExpanded(new Set(ids));
+    setSelected(nodeId);
+  }, [tree]);
+
+  async function saveFavori() {
+    if (!selected || favorisSaving) return;
+    setFavorisSaving(true);
+    try {
+      const label = favorisNewLabel.trim() || findNodeLabel(tree, selected) || 'Favori';
+      const res = await db.createFavori({ label, node_id: selected, node_type: findNodeType(tree, selected) ?? 'site', expanded: [...expanded] });
+      setFavoris(prev => [...prev, res.data]);
+      setFavorisNewLabel('');
+      setFavorisAddOpen(false);
+    } finally {
+      setFavorisSaving(false);
+    }
+  }
+
+  async function deleteFavori(id: string) {
+    await db.removeFavori(id);
+    setFavoris(prev => prev.filter(f => f.id !== id));
+  }
+
+  async function renameFavori(id: string) {
+    if (!favorisRenameVal.trim()) return;
+    const res = await db.updateFavori(id, favorisRenameVal.trim());
+    setFavoris(prev => prev.map(f => f.id === id ? res.data : f));
+    setFavorisRenaming(null);
+  }
+
+  function applyFavori(f: Favori) {
+    setExpanded(new Set(f.expanded));
+    setSelected(f.node_id);
+    setFavorisPanelOpen(false);
+  }
 
   const TILES = {
     plan: {
@@ -1074,39 +1149,109 @@ export default function CartoPage() {
         {/* SIDEBAR */}
         <aside style={{ width: sidebarOpen ? 240 : 0, background: C.surface, borderRight: sidebarOpen ? `1px solid ${C.border}` : 'none', display: 'flex', flexDirection: 'column', flexShrink: 0, overflow: 'hidden', transition: 'width 0.22s ease' }}>
           <div style={{ padding: '8px 10px', borderBottom: `1px solid ${C.border}`, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 10, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.08em', flex: 1 }}>
-              Arborescence
+            <span style={{ fontSize: 10, fontWeight: 600, color: favorisPanelOpen ? C.accent : C.muted, textTransform: 'uppercase', letterSpacing: '0.08em', flex: 1, cursor: 'pointer' }} onClick={() => setFavorisPanelOpen(o => !o)}>
+              {favorisPanelOpen ? 'Favoris' : 'Arborescence'}
             </span>
+            {!favorisPanelOpen && <>
+              <button title="Tout déplier" onClick={() => setExpanded(collectExpandableIds(tree))} style={s.treeCtrlBtn}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/></svg>
+              </button>
+              <button title="Tout replier" onClick={() => setExpanded(new Set())} style={s.treeCtrlBtn}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="7 11 12 6 17 11"/><polyline points="7 18 12 13 17 18"/></svg>
+              </button>
+            </>}
             <button
-              title="Tout déplier"
-              onClick={() => setExpanded(collectExpandableIds(tree))}
-              style={s.treeCtrlBtn}
+              title={favorisPanelOpen ? 'Fermer les favoris' : 'Favoris'}
+              onClick={() => setFavorisPanelOpen(o => !o)}
+              style={{ ...s.treeCtrlBtn, color: 'var(--warning)' }}
             >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/>
-              </svg>
-            </button>
-            <button
-              title="Tout replier"
-              onClick={() => setExpanded(new Set())}
-              style={s.treeCtrlBtn}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="7 11 12 6 17 11"/><polyline points="7 18 12 13 17 18"/>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill={favorisPanelOpen ? 'var(--warning)' : 'none'} stroke="var(--warning)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
               </svg>
             </button>
           </div>
-          <div className="scrollbar-styled" style={{ flex: 1, overflowY: 'auto', padding: '6px 0' }}>
-            {loading && (
-              <p style={{ padding: '14px 12px', fontSize: 12, color: C.muted, margin: 0 }}>Chargement…</p>
-            )}
-            {!loading && tree.length === 0 && (
-              <p style={{ padding: '14px 12px', fontSize: 12, color: C.muted, margin: 0 }}>Aucun site disponible.</p>
-            )}
-            {tree.map(node => (
-              <TreeItem key={node.id} node={node} depth={0} expanded={expanded} selected={selected} onToggle={toggleNode} onSelect={setSelected} onDoubleClick={handleNodeDoubleClick} />
-            ))}
-          </div>
+
+          {favorisPanelOpen ? (
+            <div className="scrollbar-styled" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+              {/* Sauvegarder l'état courant */}
+              <div style={{ padding: '8px 10px', borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+                {favorisAddOpen ? (
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <input
+                      autoFocus
+                      value={favorisNewLabel}
+                      onChange={e => setFavorisNewLabel(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') saveFavori(); if (e.key === 'Escape') setFavorisAddOpen(false); }}
+                      placeholder={findNodeLabel(tree, selected ?? '') ?? 'Nom du favori'}
+                      style={{ flex: 1, fontSize: 11, background: C.bg, border: `1px solid ${C.accent}`, borderRadius: 4, color: C.text, padding: '4px 7px', outline: 'none' }}
+                    />
+                    <button onClick={saveFavori} disabled={favorisSaving} style={{ ...s.treeCtrlBtn, color: C.accent }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </button>
+                    <button onClick={() => setFavorisAddOpen(false)} style={s.treeCtrlBtn}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { setFavorisNewLabel(''); setFavorisAddOpen(true); }}
+                    disabled={!selected}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 6, background: 'var(--accent-14)', border: `1px solid var(--accent-33)`, borderRadius: 5, padding: '5px 8px', cursor: selected ? 'pointer' : 'not-allowed', opacity: selected ? 1 : 0.45, color: C.accent, fontSize: 11, fontWeight: 500 }}
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Sauvegarder la sélection courante
+                  </button>
+                )}
+              </div>
+
+              {/* Liste des favoris */}
+              {favoris.length === 0 ? (
+                <p style={{ padding: '14px 12px', fontSize: 11, color: C.muted, margin: 0, fontStyle: 'italic' }}>Aucun favori enregistré.</p>
+              ) : (
+                <div style={{ padding: '4px 0' }}>
+                  {favoris.map(f => (
+                    <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 4, margin: '1px 4px' }}>
+                      {favorisRenaming === f.id ? (
+                        <input
+                          autoFocus
+                          value={favorisRenameVal}
+                          onChange={e => setFavorisRenameVal(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') renameFavori(f.id); if (e.key === 'Escape') setFavorisRenaming(null); }}
+                          onBlur={() => renameFavori(f.id)}
+                          style={{ flex: 1, fontSize: 11, background: C.bg, border: `1px solid ${C.accent}`, borderRadius: 4, color: C.text, padding: '3px 6px', outline: 'none' }}
+                        />
+                      ) : (
+                        <button
+                          onClick={() => applyFavori(f)}
+                          title="Naviguer vers ce favori"
+                          style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}
+                        >
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="var(--warning)" stroke="var(--warning)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                          </svg>
+                          <span style={{ fontSize: 11, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.label}</span>
+                        </button>
+                      )}
+                      <button onClick={() => { setFavorisRenaming(f.id); setFavorisRenameVal(f.label); }} style={{ ...s.treeCtrlBtn, flexShrink: 0 }} title="Renommer">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                      </button>
+                      <button onClick={() => deleteFavori(f.id)} style={{ ...s.treeCtrlBtn, flexShrink: 0, color: 'var(--danger)' }} title="Supprimer">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="scrollbar-styled" style={{ flex: 1, overflowY: 'auto', padding: '6px 0' }}>
+              {loading && <p style={{ padding: '14px 12px', fontSize: 12, color: C.muted, margin: 0 }}>Chargement…</p>}
+              {!loading && tree.length === 0 && <p style={{ padding: '14px 12px', fontSize: 12, color: C.muted, margin: 0 }}>Aucun site disponible.</p>}
+              {tree.map(node => (
+                <TreeItem key={node.id} node={node} depth={0} expanded={expanded} selected={selected} onToggle={toggleNode} onSelect={setSelected} onDoubleClick={handleNodeDoubleClick} />
+              ))}
+            </div>
+          )}
         </aside>
 
         {/* TOGGLE STRIP */}
@@ -1412,7 +1557,7 @@ export default function CartoPage() {
               <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, display: 'flex', zIndex: planViewer ? 600 : 10 }}>
                     <div style={{ display: 'flex', height: '100%', flexShrink: 0 }}>
                       <PointPanelToggle collapsed={planPanelCollapsed} onClick={() => setPlanPanelCollapsed(c => !c)} />
-                      <div style={{ width: planPanelCollapsed ? 0 : 300, background: C.surface, borderLeft: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', transition: 'width 0.22s ease', flexShrink: 0 }}>
+                      <div style={{ width: planPanelCollapsed ? 0 : 300, background: C.surface2, borderLeft: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', transition: 'width 0.22s ease', flexShrink: 0 }}>
 
                         {/* ── Header ── */}
                         <div style={{ padding: '14px 14px 10px', borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
@@ -1567,9 +1712,12 @@ export default function CartoPage() {
 
                               {/* ── Fichiers PDF ── */}
                               {pointPdfs.length > 0 && (
-                                <div style={{ borderTop: `1px solid ${C.border}`, padding: '10px 14px' }}>
-                                  <div style={{ fontSize: 10, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Fichiers PDF</div>
-                                  <div style={{ border: `1px solid ${C.border}`, borderRadius: 4, overflow: 'hidden' }}>
+                                <div style={{ borderTop: `2px solid ${C.muted}`, marginTop: 10, padding: '10px 14px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                                    <span style={{ fontSize: 10, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Fichiers PDF</span>
+                                    <span style={{ fontSize: 10, fontWeight: 600, color: C.accent, background: 'var(--accent-18)', borderRadius: 10, padding: '1px 6px', lineHeight: '14px' }}>{pointPdfs.length}</span>
+                                  </div>
+                                  <div style={{ border: `1px solid ${C.border}`, borderRadius: 4, overflow: 'hidden', ...(pointPdfs.length > 4 ? { maxHeight: 140, overflowY: 'auto' } : {}) }}>
                                     {pointPdfs.map((pdf, i) => (
                                       <div key={pdf.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderBottom: i < pointPdfs.length - 1 ? `1px solid ${C.border20}` : 'none', background: 'transparent' }}>
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={C.muted} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
@@ -1595,7 +1743,7 @@ export default function CartoPage() {
 
                               {/* ── Carousel photos ── */}
                               {(photosLoading || pointPhotos.length > 0) && (
-                                <div style={{ borderTop: `1px solid ${C.border}` }}>
+                                <div style={{ borderTop: `2px solid ${C.muted}`, marginTop: 10, paddingTop: 10 }}>
                                   {photosLoading ? (
                                     <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                       <span style={{ fontSize: 11, color: C.muted }}>Chargement…</span>
@@ -1603,7 +1751,7 @@ export default function CartoPage() {
                                   ) : (() => {
                                     const photo = pointPhotos[carouselIndex];
                                     return (
-                                      <div style={{ position: 'relative' }}>
+                                      <div style={{ padding: '6px 6px 0' }}><div style={{ position: 'relative', borderRadius: 6, overflow: 'hidden' }}>
                                         <div onClick={() => photo.public_url && setPhotoModalIndex(carouselIndex)}
                                           style={{ height: 180, background: '#0a0e17', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: photo.public_url ? 'zoom-in' : 'default' }}>
                                           {photo.public_url
@@ -1625,25 +1773,6 @@ export default function CartoPage() {
                                         <div style={{ padding: '6px 10px', background: 'rgba(0,0,0,0.45)', position: 'absolute', bottom: 0, left: 0, right: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
                                           <span style={{ flex: 1, fontSize: 11, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{photo.nom}</span>
                                           <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)', flexShrink: 0 }}>{carouselIndex + 1}/{pointPhotos.length}</span>
-                                          {photoDeleteConfirm ? (
-                                            <>
-                                              <button onClick={() => handleDeletePhoto(photo)} title="Confirmer suppression"
-                                                style={{ width: 20, height: 20, background: 'rgba(224,122,122,0.9)', border: 'none', borderRadius: 3, cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 0 }}>
-                                                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-                                              </button>
-                                              <button onClick={() => setPhotoDeleteConfirm(false)} title="Annuler"
-                                                style={{ width: 20, height: 20, background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 3, cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 0 }}>
-                                                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                              </button>
-                                            </>
-                                          ) : (
-                                            <button onClick={() => setPhotoDeleteConfirm(true)} title="Supprimer cette photo"
-                                              style={{ width: 20, height: 20, background: 'transparent', border: 'none', borderRadius: 3, cursor: 'pointer', color: 'rgba(255,255,255,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 0 }}>
-                                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                                              </svg>
-                                            </button>
-                                          )}
                                         </div>
                                         {pointPhotos.length > 1 && (
                                           <div style={{ position: 'absolute', top: 6, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 4 }}>
@@ -1652,7 +1781,7 @@ export default function CartoPage() {
                                             ))}
                                           </div>
                                         )}
-                                      </div>
+                                      </div></div>
                                     );
                                   })()}
                                 </div>

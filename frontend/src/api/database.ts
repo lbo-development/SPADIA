@@ -277,4 +277,23 @@ export const db = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
+
+  listFavoris: () =>
+    apiClient.get<Favori[]>('/favoris'),
+  createFavori: (data: { label: string; node_id: string; node_type: string; expanded: string[] }) =>
+    apiClient.post<Favori>('/favoris', data),
+  updateFavori: (id: string, label: string) =>
+    apiClient.patch<Favori>(`/favoris/${id}`, { label }),
+  removeFavori: (id: string) =>
+    apiClient.delete(`/favoris/${id}`),
+};
+
+export type Favori = {
+  id: string;
+  user_id: string;
+  label: string;
+  node_id: string;
+  node_type: string;
+  expanded: string[];
+  created_at: string;
 };

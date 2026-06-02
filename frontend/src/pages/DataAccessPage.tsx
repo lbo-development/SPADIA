@@ -1,163 +1,417 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { dashboardApi, type DashboardStats, type QuickAccessData } from '@/api/dashboard';
-import { ROLES } from '@/constants/roles';
+import { dashboardApi, type DashboardData, type DashboardPV, type DashboardCalque, type DashboardFavori } from '@/api/dashboard';
 import { C } from '@/constants/colors';
 
-export default function DataAccessPage() {
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const role = user?.role ?? '';
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
-  const [stats, setStats]               = useState<DashboardStats | null>(null);
-  const [quickAccess, setQuickAccess] = useState<QuickAccessData | null>(null);
-  const [loading, setLoading]         = useState(true);
-  const [selSite, setSelSite]         = useState('');
-  const [selPlan, setSelPlan]         = useState('');
-  const [selDossier, setSelDossier]   = useState('');
+function calqueNavState(c: DashboardCalque): { nodeId: string; expanded: string[] } {
+  if (c.plan_id) {
+    // Priorité aux IDs du plan joint (le calque peut ne pas avoir site_id/installation_id directs)
+    const siteId = c.plan_site_id ?? c.site_id;
+    const instId = c.plan_installation_id ?? c.installation_id;
+    if (siteId && instId) {
+      return {
+        nodeId: c.plan_id,
+        expanded: [siteId, `grp-inst-${siteId}`, instId, `grp-plans-${instId}`],
+      };
+    }
+  }
+  if (c.installation_id && c.site_id) {
+    return { nodeId: c.installation_id, expanded: [c.site_id, `grp-inst-${c.site_id}`] };
+  }
+  if (c.site_id) {
+    return { nodeId: c.site_id, expanded: [] };
+  }
+  return { nodeId: '', expanded: [] };
+}
+
+function fmtDate(s: string | null): string {
+  if (!s) return '—';
+  try { return new Date(s).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
+  catch { return '—'; }
+}
+
+function pvNom(pv: DashboardPV): string {
+  const n = (pv.payload as Record<string, unknown>)?.nom;
+  return typeof n === 'string' && n ? n : '—';
+}
+
+function pvContext(pv: DashboardPV): string {
+  const parts = [pv.site_nom, pv.installation_nom, pv.dossier_nom, pv.plan_nom].filter(Boolean);
+  return parts.join(' › ') || '—';
+}
+
+// ── Micro-composants ─────────────────────────────────────────────────────────
+
+function Spinner() {
+  return (
+    <div style={{ width: 20, height: 20, border: '2px solid var(--accent-33)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+  );
+}
+
+function SectionHeader({ label }: { label: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+      <div style={{ height: 1, width: 18, background: C.border, flexShrink: 0 }} />
+      <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.1em', whiteSpace: 'nowrap' }}>
+        {label}
+      </span>
+      <div style={{ height: 1, flex: 1, background: C.border }} />
+    </div>
+  );
+}
+
+type StatutValue = 'En attente' | 'A compléter' | 'Validé' | 'Rejeté';
+
+const STATUT_STYLE: Record<StatutValue, { bg: string; color: string; label: string }> = {
+  'En attente':  { bg: 'var(--warning-18, #f59e0b18)', color: 'var(--warning)', label: 'En attente' },
+  'A compléter': { bg: 'var(--accent-14)',              color: 'var(--accent)',   label: 'À compléter' },
+  'Validé':      { bg: 'var(--success-18)',              color: 'var(--success)', label: 'Validé' },
+  'Rejeté':      { bg: 'var(--danger-44)',               color: 'var(--danger)',  label: 'Rejeté' },
+};
+
+function StatutBadge({ statut }: { statut: StatutValue }) {
+  const s = STATUT_STYLE[statut] ?? STATUT_STYLE['En attente'];
+  return (
+    <span style={{
+      display: 'inline-block', padding: '2px 9px', borderRadius: 99,
+      fontSize: 11, fontWeight: 600, background: s.bg, color: s.color,
+      whiteSpace: 'nowrap',
+    }}>
+      {s.label}
+    </span>
+  );
+}
+
+const ENTITY_STYLE: Record<string, { bg: string; color: string; label: string }> = {
+  plan:        { bg: 'var(--accent-14)',               color: 'var(--accent)',   label: 'Plan' },
+  calque:      { bg: 'var(--warning-18, #f59e0b18)',   color: 'var(--warning)',  label: 'Calque' },
+  fichier_pdf: { bg: 'var(--success-18)',               color: 'var(--success)', label: 'Fichier PDF' },
+};
+
+function TypeBadge({ type }: { type: string }) {
+  const s = ENTITY_STYLE[type] ?? { bg: C.surface2, color: C.muted, label: type };
+  return (
+    <span style={{
+      display: 'inline-block', padding: '2px 8px', borderRadius: 99,
+      fontSize: 11, fontWeight: 600, background: s.bg, color: s.color,
+      whiteSpace: 'nowrap',
+    }}>
+      {s.label}
+    </span>
+  );
+}
+
+const NODE_TYPE_LABELS: Record<string, string> = {
+  site:         'Site',
+  installation: 'Installation',
+  plan:         'Plan',
+  calque:       'Calque',
+  dossier:      'Dossier',
+};
+
+// ── Tableau générique pour pour_validation ───────────────────────────────────
+
+interface PVTableProps {
+  rows:          DashboardPV[];
+  showProposedBy?: boolean;
+  showValidateur?: boolean;
+}
+
+const TH_STYLE: React.CSSProperties = {
+  padding: '7px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700,
+  color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em',
+  borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap',
+  background: C.surface2,
+};
+const TD_STYLE: React.CSSProperties = {
+  padding: '9px 12px', fontSize: 'var(--text-sm)', color: C.text,
+  borderBottom: `1px solid ${C.border}`, verticalAlign: 'middle',
+};
+const TD_MUTED: React.CSSProperties = { ...TD_STYLE, color: C.muted, fontSize: 12 };
+
+function PVTable({ rows, showProposedBy = false, showValidateur = false }: PVTableProps) {
+  if (rows.length === 0) {
+    return (
+      <div style={{ padding: '16px 0', color: C.muted, fontSize: 'var(--text-sm)' }}>
+        Aucune demande.
+      </div>
+    );
+  }
+  return (
+    <div style={{ overflowX: 'auto', borderRadius: 'var(--r-lg)', border: `1px solid ${C.border}` }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' }}>
+        <thead>
+          <tr>
+            <th style={TH_STYLE}>Type</th>
+            <th style={TH_STYLE}>Nom</th>
+            <th style={TH_STYLE}>Contexte</th>
+            {showProposedBy && <th style={TH_STYLE}>Soumis par</th>}
+            {showValidateur && <th style={TH_STYLE}>Validateur</th>}
+            <th style={TH_STYLE}>Date</th>
+            <th style={TH_STYLE}>Statut</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(pv => (
+            <tr key={pv.id} style={{ background: C.surface }}>
+              <td style={TD_STYLE}><TypeBadge type={pv.entity_type} /></td>
+              <td style={TD_STYLE}>{pvNom(pv)}</td>
+              <td style={TD_MUTED}>{pvContext(pv)}</td>
+              {showProposedBy && <td style={TD_MUTED}>{pv.proposedby_nom || '—'}</td>}
+              {showValidateur && <td style={TD_MUTED}>{pv.validateur_nom || '—'}</td>}
+              <td style={TD_MUTED}>{fmtDate(pv.date_propose)}</td>
+              <td style={TD_STYLE}><StatutBadge statut={pv.statut} /></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ── List boxes côte à côte ────────────────────────────────────────────────────
+
+const LISTBOX_ITEM: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+  padding: '10px 14px', borderBottom: `1px solid ${C.border}`,
+};
+const LISTBOX_EMPTY: React.CSSProperties = {
+  padding: '14px', color: C.muted, fontSize: 'var(--text-sm)', fontStyle: 'italic',
+};
+
+function ListBoxShell({
+  title, count, maxHeight, children,
+}: { title: string; count: number; maxHeight: number; children: React.ReactNode }) {
+  return (
+    <div style={{
+      flex: 1, minWidth: 0,
+      border: `1px solid ${C.border}`, borderRadius: 'var(--r-xl)',
+      background: C.surface, overflow: 'hidden', boxShadow: 'var(--shadow-sm)',
+    }}>
+      {/* header */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '10px 14px', borderBottom: `1px solid ${C.border}`,
+        background: C.surface2,
+      }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          {title}
+        </span>
+        <span style={{
+          fontSize: 11, fontWeight: 700, padding: '1px 8px', borderRadius: 99,
+          background: C.surface, color: C.muted, border: `1px solid ${C.border}`,
+        }}>
+          {count}
+        </span>
+      </div>
+      {/* scrollable list */}
+      <div style={{ maxHeight, overflowY: 'auto' }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function FavoriListBox({ favoris, onNavigate }: { favoris: DashboardFavori[]; onNavigate: (nodeId: string, expanded: string[]) => void }) {
+  const [hovered, setHovered] = useState<string | null>(null);
+  return (
+    <ListBoxShell title="Mes favoris" count={favoris.length} maxHeight={200}>
+      {favoris.length === 0
+        ? <div style={LISTBOX_EMPTY}>Aucun favori enregistré.</div>
+        : favoris.map(f => (
+          <div
+            key={f.id}
+            role="button"
+            tabIndex={0}
+            onClick={() => onNavigate(f.node_id, f.expanded)}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') onNavigate(f.node_id, f.expanded); }}
+            onMouseEnter={() => setHovered(f.id)}
+            onMouseLeave={() => setHovered(null)}
+            title="Ouvrir dans la carte"
+            style={{
+              ...LISTBOX_ITEM,
+              cursor: 'pointer',
+              background: hovered === f.id ? 'var(--accent-08)' : 'transparent',
+              transition: 'background 0.12s',
+            }}
+          >
+            <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: C.text, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {f.label}
+            </span>
+            <span style={{
+              fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 99, flexShrink: 0,
+              background: C.surface2, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em',
+              border: `1px solid ${C.border}`,
+            }}>
+              {NODE_TYPE_LABELS[f.node_type] ?? f.node_type}
+            </span>
+          </div>
+        ))
+      }
+    </ListBoxShell>
+  );
+}
+
+function CalqueListBox({ calques, onNavigate }: { calques: DashboardCalque[]; onNavigate: (nodeId: string, expanded: string[]) => void }) {
+  const [hovered, setHovered] = useState<string | null>(null);
+  return (
+    <ListBoxShell title="Mes calques" count={calques.length} maxHeight={290}>
+      {calques.length === 0
+        ? <div style={LISTBOX_EMPTY}>Aucun calque.</div>
+        : calques.map(c => {
+          const ctx = [c.site_nom, c.installation_nom, c.plan_nom].filter(Boolean).join(' › ') || null;
+          const isGeo = c.type === 'geographique';
+          const { nodeId, expanded: ids } = calqueNavState(c);
+          const canNav = !!nodeId;
+          return (
+            <div
+              key={c.id}
+              role={canNav ? 'button' : undefined}
+              tabIndex={canNav ? 0 : undefined}
+              onClick={canNav ? () => onNavigate(nodeId, ids) : undefined}
+              onKeyDown={canNav ? e => { if (e.key === 'Enter' || e.key === ' ') onNavigate(nodeId, ids); } : undefined}
+              onMouseEnter={() => canNav && setHovered(c.id)}
+              onMouseLeave={() => setHovered(null)}
+              title={canNav ? 'Ouvrir dans la carte' : undefined}
+              style={{
+                ...LISTBOX_ITEM,
+                alignItems: 'flex-start',
+                cursor: canNav ? 'pointer' : 'default',
+                background: hovered === c.id ? 'var(--accent-08)' : 'transparent',
+                transition: 'background 0.12s',
+              }}
+            >
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {c.nom}
+                </div>
+                {ctx && (
+                  <div style={{ fontSize: 11, color: C.muted, marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {ctx}
+                  </div>
+                )}
+              </div>
+              <span style={{
+                fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 99, flexShrink: 0, marginTop: 2,
+                background: isGeo ? 'var(--accent-14)' : C.surface2,
+                color: isGeo ? 'var(--accent)' : C.muted,
+                border: `1px solid ${isGeo ? 'var(--accent-33)' : C.border}`,
+              }}>
+                {isGeo ? 'Géo' : 'Non-géo'}
+              </span>
+            </div>
+          );
+        })
+      }
+    </ListBoxShell>
+  );
+}
+
+// ── Page principale ───────────────────────────────────────────────────────────
+
+export default function DataAccessPage() {
+  const { user }   = useAuth();
+  const navigate   = useNavigate();
+  const [data,    setData]    = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState(false);
+
+  function goToCarte(nodeId: string, expanded: string[]) {
+    navigate('/carte', { state: { nodeId, expanded } });
+  }
 
   useEffect(() => {
-    async function load() {
-      try {
-        const [s, q] = await Promise.all([dashboardApi.getStats(), dashboardApi.getQuickAccess()]);
-        setStats(s.data);
-        setQuickAccess(q.data);
-        if (q.data.sites[0])    setSelSite(q.data.sites[0].id);
-        if (q.data.plans[0])    setSelPlan(q.data.plans[0].id);
-        if (q.data.dossiers[0]) setSelDossier(q.data.dossiers[0].id);
-      } finally { setLoading(false); }
-    }
-    load();
+    dashboardApi.getData()
+      .then(r => setData(r.data))
+      .catch(() => setError(true))
+      .finally(() => setLoading(false));
   }, []);
 
-  const canValidate = role === ROLES.ADMIN_APP || role === ROLES.ADMIN_DATA;
-  const isUser      = role === ROLES.USER;
-  const total       = stats ? Object.values(stats.pending).reduce((a, b) => a + b, 0) : 0;
+  const role = user?.role ?? '';
+  const nom  = user?.nom  ?? '';
+  const acred = user?.niveau_accreditation ?? 0;
+
+  const isAdminApp  = role === 'Admin_app';
+  const isAdminData = role === 'Admin_data';
 
   return (
-    <div style={s.root}>
-      <main style={s.main}>
-        {/* En-tête */}
-        <div style={s.pageHeader}>
-          <div>
-            <h1 style={s.pageTitle}>Bonjour, {user?.nom?.split(' ')[0]} ·</h1>
-            <p style={s.pageSubtitle}>Tableau de bord SPADIA</p>
-          </div>
-          {total > 0 && (
-            <div style={s.alertBadge}>
-              <span style={s.alertDot} />
-              {total} élément{total > 1 ? 's' : ''} en attente
-            </div>
-          )}
+    <div style={{ padding: '32px 36px', maxWidth: 1100, margin: '0 auto' }}>
+
+      {/* ── En-tête ── */}
+      <div style={{ marginBottom: 36 }}>
+        <h1 style={{ margin: '0 0 6px', fontSize: 'var(--text-2xl)', fontWeight: 700, color: C.text }}>
+          Tableau de bord
+        </h1>
+        <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: C.muted }}>
+          {nom && <><strong style={{ color: C.text }}>{nom}</strong> · </>}
+          {role && <span style={{
+            display: 'inline-flex', alignItems: 'center', padding: '1px 8px', borderRadius: 99,
+            background: C.surface2, color: C.muted, fontSize: 11, fontWeight: 600, marginRight: 8,
+          }}>{role}</span>}
+          Accréditation&nbsp;
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 20, height: 20, borderRadius: '50%', background: 'var(--accent-22)',
+            color: 'var(--accent)', fontSize: 11, fontWeight: 700,
+          }}>{acred}</span>
+        </p>
+      </div>
+
+      {loading && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: C.muted, fontSize: 'var(--text-sm)' }}>
+          <Spinner /> Chargement…
         </div>
+      )}
 
-        {loading ? (
-          <div style={s.loadingWrap}><div style={s.spinner} /></div>
-        ) : (
-          <div style={s.grid}>
-            {/* Colonne gauche */}
-            <div>
-              <div style={s.sectionLabel}>Vue d'ensemble</div>
-              <div style={s.statsGrid}>
-                <StatCard value={stats?.overview.sites ?? 0}         label="Sites"         color="#378ADD" />
-                <StatCard value={stats?.overview.installations ?? 0} label="Installations" color="#1D9E75" />
-                <StatCard value={stats?.overview.plans ?? 0}         label="Plans SVG"     color="#BA7517" />
-                <StatCard value={stats?.overview.dossiers ?? 0}      label="Dossiers"      color="#8B5CF6" />
-              </div>
+      {error && !loading && (
+        <div style={{
+          background: 'var(--error-bg)', border: '1px solid var(--error-border)',
+          borderRadius: 'var(--r-lg)', padding: '12px 16px',
+          fontSize: 'var(--text-sm)', color: 'var(--danger)',
+        }}>
+          Impossible de charger les données du tableau de bord.
+        </div>
+      )}
 
-              <div style={{ ...s.sectionLabel, marginTop: 24 }}>Activité en attente</div>
-              <div style={s.card}>
-                {(['plans', 'calques', 'dossiers', 'photos'] as const).map((key, i, arr) => (
-                  <div key={key} style={{ ...s.pendingRow, ...(i === arr.length - 1 ? { borderBottom: 'none' } : {}) }}>
-                    <span style={s.pendingLabel}>{key.charAt(0).toUpperCase() + key.slice(1)}</span>
-                    <span style={s.pendingBadge}>{stats?.pending[key] ?? 0}</span>
-                    {(stats?.pending[key] ?? 0) > 0 && canValidate && (
-                      <button style={s.actionBtn}>Traiter →</button>
-                    )}
-                    {(stats?.pending[key] ?? 0) > 0 && isUser && (
-                      <button style={s.actionBtn}>Voir</button>
-                    )}
-                  </div>
-                ))}
-              </div>
+      {!loading && !error && data && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 36 }}>
+
+          {/* ── 1. Favoris + Mes calques côte à côte ── */}
+          <section>
+            <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+              <FavoriListBox favoris={data.favoris} onNavigate={goToCarte} />
+              <CalqueListBox calques={data.mesCalques} onNavigate={goToCarte} />
             </div>
+          </section>
 
-            {/* Colonne droite */}
-            <div>
-              <div style={s.sectionLabel}>Accès rapide</div>
-              <div style={s.card}>
-                <QuickRow label="Carte"    value={selSite}    onChange={setSelSite}    options={quickAccess?.sites ?? []}    onOpen={() => navigate(`/carte?site=${selSite}`)} />
-                <QuickRow label="Plan SVG" value={selPlan}    onChange={setSelPlan}    options={quickAccess?.plans ?? []}    onOpen={() => navigate(`/carte?plan=${selPlan}`)} />
-                <QuickRow label="Dossier"  value={selDossier} onChange={setSelDossier} options={quickAccess?.dossiers ?? []} onOpen={() => {}} last />
-              </div>
+          {/* ── 2. Toutes les soumissions (admin_app) ── */}
+          {isAdminApp && (
+            <section>
+              <SectionHeader label="Toutes les soumissions" />
+              <PVTable rows={data.soumis} showProposedBy showValidateur />
+            </section>
+          )}
 
-              <div style={{ ...s.sectionLabel, marginTop: 24 }}>Navigation</div>
-              <button style={s.mapBtn} onClick={() => navigate('/carte')}>
-                ◈ Ouvrir la carte interactive →
-              </button>
-            </div>
-          </div>
-        )}
-      </main>
+          {/* ── 3. À valider (admin_data) ── */}
+          {isAdminData && (
+            <section>
+              <SectionHeader label="À valider" />
+              <PVTable rows={data.aValider} showProposedBy />
+            </section>
+          )}
+
+          {/* ── 4. Mes demandes ── */}
+          <section>
+            <SectionHeader label="Mes demandes de validation" />
+            <PVTable rows={data.mesDemandes} showValidateur />
+          </section>
+
+
+        </div>
+      )}
     </div>
   );
 }
-
-function StatCard({ value, label, color }: { value: number; label: string; color: string }) {
-  return (
-    <div style={{ background: '#161B27', border: '1px solid #232B3E', borderRadius: 10, padding: '14px 16px' }}>
-      <div style={{ width: 28, height: 28, borderRadius: 6, background: color + '18', color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, marginBottom: 6 }}>◆</div>
-      <div style={{ fontSize: 26, fontWeight: 700, color: '#E8EDF5' }}>{value}</div>
-      <div style={{ fontSize: 11, color: '#6B7A99' }}>{label}</div>
-    </div>
-  );
-}
-
-function QuickRow({ label, value, onChange, options, onOpen, last = false }: {
-  label: string; value: string; onChange: (v: string) => void;
-  options: { id: string; nom: string }[]; onOpen: () => void; last?: boolean;
-}) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderBottom: last ? 'none' : '1px solid #232B3E' }}>
-      <span style={{ fontSize: 12, color: '#6B7A99', width: 68, flexShrink: 0 }}>{label}</span>
-      <select value={value} onChange={e => onChange(e.target.value)}
-        style={{ flex: 1, height: 28, background: '#1C2333', border: '1px solid #232B3E', borderRadius: 5, padding: '0 8px', fontSize: 12, color: '#E8EDF5', outline: 'none' }}
-        disabled={options.length === 0}>
-        {options.length === 0
-          ? <option>Aucun disponible</option>
-          : options.map(o => <option key={o.id} value={o.id}>{o.nom}</option>)}
-      </select>
-      <button onClick={onOpen} disabled={!value || options.length === 0}
-        style={{ height: 28, padding: '0 12px', background: '#185FA5', border: 'none', borderRadius: 5, cursor: 'pointer', fontSize: 11, fontWeight: 600, color: '#fff' }}>
-        Ouvrir
-      </button>
-    </div>
-  );
-}
-
-const s: Record<string, React.CSSProperties> = {
-  root: { minHeight: '100vh', background: C.bg },
-  nav: { height: 48, background: C.bg, borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 12, padding: '0 16px', position: 'sticky', top: 0, zIndex: 100 },
-  logoMark: { fontSize: 16, color: C.accent },
-  logoText: { fontSize: 14, fontWeight: 700, color: C.text, letterSpacing: '0.1em' },
-  dbBtn:     { height: 28, padding: '0 12px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 5, cursor: 'pointer', fontSize: 11, color: C.accent, fontWeight: 500 },
-  logoutBtn: { height: 28, padding: '0 12px', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 5, cursor: 'pointer', fontSize: 11, color: C.muted },
-  main: { maxWidth: 1100, margin: '0 auto', padding: '28px 24px' },
-  pageHeader: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 },
-  pageTitle: { fontSize: 22, fontWeight: 700, color: C.text, margin: 0 },
-  pageSubtitle: { fontSize: 12, color: C.muted, margin: '4px 0 0' },
-  alertBadge: { display: 'flex', alignItems: 'center', gap: 8, background: '#BA751718', border: '1px solid #BA751744', borderRadius: 6, padding: '6px 12px', fontSize: 12, color: '#BA7517', fontWeight: 500 },
-  alertDot: { width: 7, height: 7, borderRadius: '50%', background: '#BA7517', display: 'inline-block' },
-  loadingWrap: { display: 'flex', justifyContent: 'center', padding: 80 },
-  spinner: { width: 28, height: 28, border: '2px solid #232B3E', borderTopColor: '#378ADD', borderRadius: '50%', animation: 'spin 0.7s linear infinite' },
-  grid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 },
-  sectionLabel: { fontSize: 10, fontWeight: 600, color: C.muted, textTransform: 'uppercase' as const, letterSpacing: '0.08em', marginBottom: 10 },
-  statsGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 },
-  card: { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, overflow: 'hidden' },
-  pendingRow: { display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', borderBottom: `1px solid ${C.border}` },
-  pendingLabel: { fontSize: 13, color: C.text, flex: 1 },
-  pendingBadge: { minWidth: 26, height: 20, borderRadius: 10, background: '#378ADD22', color: '#378ADD', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, padding: '0 7px' },
-  actionBtn: { background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 4, padding: '3px 8px', fontSize: 11, color: C.muted, cursor: 'pointer' },
-  mapBtn: { width: '100%', padding: '14px 16px', background: '#185FA522', border: '1px solid #185FA555', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: C.accent },
-};
