@@ -87,7 +87,7 @@ const TYPES = Object.entries(TYPE_LABELS).map(([value, label]) => ({ value, labe
 function OwnerChip({ nom }: { nom: string }) {
   if (!nom) return <span style={{ fontSize: 11, color: C.muted }}>—</span>;
   return (
-    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: C.surface2, border: `1px solid ${C.border}`, color: C.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140, display: 'inline-block' }}>
+    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: C.surface2, border: `1px solid ${C.border}`, color: C.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
       {nom}
     </span>
   );
@@ -104,7 +104,7 @@ function TypeBadge({ type }: { type: string }) {
 
 // ── Grid ─────────────────────────────────────────────────────────────────────
 
-const GRID = '48px minmax(0,0.31fr) 72px 154px 180px minmax(0,1fr) 120px';
+const GRID = '48px minmax(0,0.31fr) 183px 56px 180px minmax(0,1fr) 120px';
 
 // ── Shared styles ─────────────────────────────────────────────────────────────
 
@@ -831,7 +831,7 @@ function PlanRow({ plan, canWrite, onEdit, onDelete, onUploadSvg }: {
                 {/* col2: NOM */}
                 <span style={{ fontSize: 12, color: '#8AB4D4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 12 }}>{c.nom}</span>
                 {/* col3: PROPRIÉTAIRE */}
-                <span><OwnerChip nom={c.owner_nom} /></span>
+                <div style={{ minWidth: 0, overflow: 'hidden' }}><OwnerChip nom={c.owner_nom} /></div>
                 {/* col4: niveau accréditation */}
                 <div style={{ display: 'flex', justifyContent: 'center' }}>
                   <span title="Niveau d'accréditation" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', background: C.accent33, border: `1px solid ${C.accent66}`, fontSize: 11, fontWeight: 700, color: C.accent, cursor: 'default' }}>{c.niveau_accreditation}</span>

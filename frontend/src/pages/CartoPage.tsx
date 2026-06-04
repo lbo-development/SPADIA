@@ -4,7 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { ROLES } from '@/constants/roles';
 import AppNav from '@/components/AppNav';
 import { db } from '@/api/database';
-import type { Plan, FichierPdf, Calque, Point, Photo, Favori } from '@/api/database';
+import type { Plan, FichierPdf, Calque, Point, Photo, Favori, MapStateFavori } from '@/api/database';
 import * as XLSX from 'xlsx';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -358,6 +358,8 @@ export default function CartoPage() {
   const tileLayerRef    = useRef<L.TileLayer | null>(null);
 
   const location = useLocation();
+  const pendingMapStateRef = useRef<MapStateFavori | null>(null);
+
   const pendingNavRef = useRef<{ nodeId: string; expanded: string[] } | null>(
     (location.state as { nodeId?: string; expanded?: string[] } | null)?.nodeId
       ? { nodeId: (location.state as { nodeId: string; expanded: string[] }).nodeId, expanded: (location.state as { nodeId: string; expanded: string[] }).expanded ?? [] }
@@ -462,7 +464,7 @@ export default function CartoPage() {
         setPlanAddMode(false);
         setPlanPendingPos(null);
       }
-      if (node.lat != null && node.lng != null && mapRef.current) {
+      if (!pendingMapStateRef.current && node.lat != null && node.lng != null && mapRef.current) {
         mapRef.current.flyTo([node.lat, node.lng], node.zoom ?? 13);
       }
       if (node.type === 'site') {
@@ -485,7 +487,15 @@ export default function CartoPage() {
           setCalquesList(calques);
           setGeoPointsMap(byCalque);
           setGeoSiteNom(node.label);
-          if (calques.length > 0) setCalquesActif(calques[0].id);
+          const pending = pendingMapStateRef.current;
+          if (pending?.context === 'geo') {
+            pendingMapStateRef.current = null;
+            setCalquesVisible(pending.calques_visible);
+            setCalquesActif(pending.calques_actif);
+            mapRef.current?.setView([pending.lat, pending.lng], pending.zoom, { animate: false });
+          } else {
+            if (calques.length > 0) setCalquesActif(calques[0].id);
+          }
         }).catch(() => {});
       } else {
         const path = findPath(tree, node.id);
@@ -589,7 +599,36 @@ export default function CartoPage() {
     setFavorisSaving(true);
     try {
       const label = favorisNewLabel.trim() || findNodeLabel(tree, selected) || 'Favori';
-      const res = await db.createFavori({ label, node_id: selected, node_type: findNodeType(tree, selected) ?? 'site', expanded: [...expanded] });
+
+      let mapState: MapStateFavori | null = null;
+      if (planViewer && planMapRef.current) {
+        const c = planMapRef.current.getCenter();
+        mapState = {
+          context: 'plan',
+          lat: c.lat, lng: c.lng,
+          zoom: planMapRef.current.getZoom(),
+          load_id: planViewer.planId,
+          load_type: 'plan',
+          calques_actif: planSelCalqueId,
+          calques_visible: {},
+        };
+      } else if (mapRef.current && calquesList.length > 0) {
+        const siteId = calquesList[0].site_id;
+        if (siteId) {
+          const c = mapRef.current.getCenter();
+          mapState = {
+            context: 'geo',
+            lat: c.lat, lng: c.lng,
+            zoom: mapRef.current.getZoom(),
+            load_id: siteId,
+            load_type: 'site',
+            calques_actif: calquesActif,
+            calques_visible: { ...calquesVisible },
+          };
+        }
+      }
+
+      const res = await db.createFavori({ label, node_id: selected, node_type: findNodeType(tree, selected) ?? 'site', expanded: [...expanded], map_state: mapState });
       setFavoris(prev => [...prev, res.data]);
       setFavorisNewLabel('');
       setFavorisAddOpen(false);
@@ -614,6 +653,11 @@ export default function CartoPage() {
     setExpanded(new Set(f.expanded));
     setSelected(f.node_id);
     setFavorisPanelOpen(false);
+    if (f.map_state) {
+      pendingMapStateRef.current = f.map_state;
+      const targetNode = findNode(tree, f.map_state.load_id);
+      if (targetNode) handleNodeDoubleClick(targetNode);
+    }
   }
 
   const TILES = {
@@ -853,13 +897,24 @@ export default function CartoPage() {
     db.listCalques(planViewer.planId).then(async res => {
       const calques = res.data;
       setPlanCalques(calques);
-      if (calques.length > 0) setPlanSelCalqueId(calques[0].id);
+      const pending = pendingMapStateRef.current;
+      if (pending?.context === 'plan') {
+        pendingMapStateRef.current = null;
+        setPlanSelCalqueId(pending.calques_actif);
+      } else {
+        if (calques.length > 0) setPlanSelCalqueId(calques[0].id);
+      }
       const results = await Promise.all(
         calques.map(c => db.listPoints(c.id).then(r => ({ id: c.id, pts: r.data })).catch(() => ({ id: c.id, pts: [] as Point[] })))
       );
       const byCalque: Record<string, Point[]> = {};
       for (const { id, pts } of results) byCalque[id] = pts;
       setPlanPointsMap(byCalque);
+      if (pending?.context === 'plan') {
+        setTimeout(() => {
+          planMapRef.current?.setView([pending.lat, pending.lng], pending.zoom, { animate: false });
+        }, 150);
+      }
     }).catch(() => {});
   }, [planViewer?.url]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1149,9 +1204,17 @@ export default function CartoPage() {
         {/* SIDEBAR */}
         <aside style={{ width: sidebarOpen ? 240 : 0, background: C.surface, borderRight: sidebarOpen ? `1px solid ${C.border}` : 'none', display: 'flex', flexDirection: 'column', flexShrink: 0, overflow: 'hidden', transition: 'width 0.22s ease' }}>
           <div style={{ padding: '8px 10px', borderBottom: `1px solid ${C.border}`, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 10, fontWeight: 600, color: favorisPanelOpen ? C.accent : C.muted, textTransform: 'uppercase', letterSpacing: '0.08em', flex: 1, cursor: 'pointer' }} onClick={() => setFavorisPanelOpen(o => !o)}>
-              {favorisPanelOpen ? 'Favoris' : 'Arborescence'}
-            </span>
+            {favorisPanelOpen ? (
+              <button onClick={() => setFavorisPanelOpen(false)} title="Retour à l'arborescence" style={{ ...s.treeCtrlBtn, color: C.accent, borderColor: C.accent44 }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="15 18 9 12 15 6"/>
+                </svg>
+              </button>
+            ) : (
+              <span style={{ fontSize: 10, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.08em', flex: 1, cursor: 'pointer' }} onClick={() => setFavorisPanelOpen(true)}>
+                Arborescence
+              </span>
+            )}
             {!favorisPanelOpen && <>
               <button title="Tout déplier" onClick={() => setExpanded(collectExpandableIds(tree))} style={s.treeCtrlBtn}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/></svg>

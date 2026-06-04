@@ -280,7 +280,7 @@ export const db = {
 
   listFavoris: () =>
     apiClient.get<Favori[]>('/favoris'),
-  createFavori: (data: { label: string; node_id: string; node_type: string; expanded: string[] }) =>
+  createFavori: (data: { label: string; node_id: string; node_type: string; expanded: string[]; map_state?: MapStateFavori | null }) =>
     apiClient.post<Favori>('/favoris', data),
   updateFavori: (id: string, label: string) =>
     apiClient.patch<Favori>(`/favoris/${id}`, { label }),
@@ -288,12 +288,24 @@ export const db = {
     apiClient.delete(`/favoris/${id}`),
 };
 
+export interface MapStateFavori {
+  context:         'geo' | 'plan';
+  lat:             number;
+  lng:             number;
+  zoom:            number;
+  load_id:         string;   // site_id (geo) ou plan_id (plan)
+  load_type:       'site' | 'plan';
+  calques_actif:   string | null;
+  calques_visible: Record<string, boolean>;
+}
+
 export type Favori = {
-  id: string;
-  user_id: string;
-  label: string;
-  node_id: string;
-  node_type: string;
-  expanded: string[];
+  id:         string;
+  user_id:    string;
+  label:      string;
+  node_id:    string;
+  node_type:  string;
+  expanded:   string[];
+  map_state:  MapStateFavori | null;
   created_at: string;
 };

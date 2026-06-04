@@ -61,14 +61,14 @@ function ReorderIcon() {
 type PropRow = { key: string; defaultVal: string };
 const SYSTEM_PROPS = ['marker-color', 'marker-size'];
 
-const GRID = '44px minmax(0,0.4fr) 130px 52px 44px minmax(0,1fr) 110px';
+const GRID = '44px minmax(0,0.4fr) 183px 52px 44px minmax(0,1fr) 110px';
 
 // ── Badges ────────────────────────────────────────────────────────────────────
 
 function OwnerChip({ nom }: { nom: string }) {
   if (!nom) return <span style={{ fontSize: 11, color: C.muted }}>—</span>;
   return (
-    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: C.surface2, border: `1px solid ${C.border}`, color: C.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 90, display: 'inline-block' }}>
+    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: C.surface2, border: `1px solid ${C.border}`, color: C.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
       {nom}
     </span>
   );
@@ -520,7 +520,7 @@ function SiteRow({ site, canWrite }: { site: Site; canWrite: boolean }) {
               {/* col2: nom */}
               <span style={{ fontSize: 12, color: '#8AB4D4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 12 }}>{c.nom}</span>
               {/* col3: propriétaire */}
-              <span title={c.owner_nom || undefined}><OwnerChip nom={c.owner_nom} /></span>
+              <div style={{ minWidth: 0, overflow: 'hidden' }} title={c.owner_nom || undefined}><OwnerChip nom={c.owner_nom} /></div>
               {/* col4: accréditation */}
               <div style={{ display: 'flex', justifyContent: 'center' }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', background: C.accent33, border: `1px solid ${C.accent66}`, fontSize: 11, fontWeight: 700, color: C.accent }}>{c.niveau_accreditation}</span>

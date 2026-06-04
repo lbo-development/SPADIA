@@ -159,9 +159,9 @@ function MarkerModal({ initial, onSave, onClose }: {
     if (!shapeWithFill && !hasCurrentColor) {
       errors.push('Aucun attribut fill= trouvé sur les formes — la couleur ne pourra pas être modifiée. Ajoutez fill="currentColor" sur chaque forme.');
     }
-    // Detect opaque background: a rect/path that fills the full viewBox without transparency
-    const bgRect = /<rect[^>]*(?:width\s*=\s*["']?100%|width\s*=\s*["']?\d{2,})[^>]*>/i.test(text)
-      || /<rect[^>]*(?:x\s*=\s*["']?0)[^>]*(?:width\s*=\s*["']?(?:100%|\d{2,}))[^>]*>/i.test(text);
+    // Detect opaque background: a rect covering most of the viewbox (width >= 300 or 100%)
+    const bgRect = /<rect(?![^>]*fill\s*=\s*["'](?:none|transparent)["'])[^>]*width\s*=\s*["']?(?:100%|[3-9]\d{2,}|\d{4,})["']?[^>]*>/i.test(text)
+      || /<rect(?![^>]*fill\s*=\s*["'](?:none|transparent)["'])[^>]*(?:x\s*=\s*["']?0)[^>]*width\s*=\s*["']?(?:100%|[1-9]\d{2,})["']?[^>]*>/i.test(text);
     if (bgRect) {
       errors.push('Le SVG semble avoir un fond opaque (rect couvrant toute la surface) — supprimez le rectangle de fond pour un fond transparent.');
     }

@@ -27,7 +27,7 @@ router.get('/', authMiddleware, requireRole(allRoles),
 /* ── POST /api/v1/favoris ────────────────────────────────────────────────── */
 router.post('/', authMiddleware, requireRole(allRoles),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    const { label, node_id, node_type, expanded } = req.body ?? {};
+    const { label, node_id, node_type, expanded, map_state } = req.body ?? {};
     if (!node_id || !node_type) {
       res.status(400).json({ error: { code: 'MISSING_FIELDS', message: 'node_id et node_type sont requis.', details: null } });
       return;
@@ -35,7 +35,7 @@ router.post('/', authMiddleware, requireRole(allRoles),
     try {
       const { data, error } = await supabase
         .from('favoris')
-        .insert({ user_id: req.user!.id, label: label || 'Favori', node_id, node_type, expanded: expanded ?? [] })
+        .insert({ user_id: req.user!.id, label: label || 'Favori', node_id, node_type, expanded: expanded ?? [], map_state: map_state ?? null })
         .select()
         .single();
       if (error) throw error;
