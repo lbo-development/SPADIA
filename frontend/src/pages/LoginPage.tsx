@@ -73,7 +73,7 @@ export default function LoginPage() {
                 <input
                   id="email"
                   type="email"
-                  autoComplete="off"
+                  autoComplete="new-password"
                   data-form-type="other"
                   data-lpignore="true"
                   placeholder="prenom.nom@domaine.fr"
@@ -92,16 +92,13 @@ export default function LoginPage() {
                 <span style={s.fieldIcon}><IconLock /></span>
                 <input
                   id="pwd"
-                  type="text"
-                  inputMode="text"
-                  autoComplete="off"
-                  data-form-type="other"
-                  data-lpignore="true"
+                  type={showPwd ? 'text' : 'password'}
+                  autoComplete="new-password"
                   placeholder="••••••••"
                   value={password}
                   disabled={loading}
                   onChange={e => setPassword(e.target.value)}
-                  style={{ ...s.textInput, paddingRight: 42, WebkitTextSecurity: showPwd ? 'none' : 'disc' } as React.CSSProperties}
+                  style={{ ...s.textInput, paddingRight: 42 }}
                 />
                 <button type="button" onClick={() => setShowPwd(v => !v)} style={s.eye}>
                   {showPwd
