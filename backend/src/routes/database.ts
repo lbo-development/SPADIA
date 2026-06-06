@@ -1347,9 +1347,26 @@ router.patch('/points/:id', authMiddleware, requireRole(adminAll),
   },
 );
 
-router.delete('/points/:id', authMiddleware, requireRole(adminAll),
+router.delete('/points/:id', authMiddleware, requireRole([ROLES.ADMIN_APP, ROLES.ADMIN_DATA, ROLES.USER]),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    const { id: userId, role } = req.user!;
     try {
+      // Vérifie l'ownership sauf pour Admin_app
+      if (role !== ROLES.ADMIN_APP) {
+        const { data: point } = await supabase
+          .from('points').select('calque_id').eq('id', req.params.id).single();
+        if (!point) {
+          res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Point introuvable.', details: null } });
+          return;
+        }
+        const { data: calque } = await supabase
+          .from('calques').select('owner_id').eq('id', (point as { calque_id: string }).calque_id).single();
+        if (!calque || (calque as { owner_id: string | null }).owner_id !== userId) {
+          res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Vous n\'êtes pas propriétaire de ce calque.', details: null } });
+          return;
+        }
+      }
+
       // Supprime les fichiers storage des photos
       const { data: photos } = await supabase
         .from('photosFichiersPoints').select('storage_path').eq('point_id', req.params.id);

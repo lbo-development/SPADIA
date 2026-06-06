@@ -15,7 +15,7 @@ export function Modal({ title, icon, onClose, children, footer, maxWidth = 520, 
   return (
     <div
       style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 200,
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000,
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
         fontFamily: 'Inter, system-ui, sans-serif',
       }}

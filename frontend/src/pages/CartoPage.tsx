@@ -3,13 +3,20 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { ROLES } from '@/constants/roles';
 import AppNav from '@/components/AppNav';
+import { Modal } from '@/components/Modal';
+import { extractErrorMessage } from '@/lib/errors';
 import { db } from '@/api/database';
-import type { Plan, FichierPdf, Calque, Point, Photo, Favori, MapStateFavori } from '@/api/database';
+import type { Calque, Point, Photo, Favori, MapStateFavori } from '@/api/database';
 import * as XLSX from 'xlsx';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 import { C } from '@/constants/colors';
+import { useTreeData, findNode, findPath, findNodeLabel, findNodeType, collectExpandableIds } from '@/hooks/useTreeData';
+import type { TreeNode } from '@/hooks/useTreeData';
+import { useGeoMap } from '@/hooks/useGeoMap';
+import { usePlanOverlay } from '@/hooks/usePlanOverlay';
+import type { PlanViewerState } from '@/hooks/usePlanOverlay';
 
 function safeColor(c: string): string {
   return /^#[0-9a-fA-F]{3,8}$|^rgb\(\d+,\s*\d+,\s*\d+\)$/.test(c) ? c : '#333333';
@@ -27,117 +34,6 @@ function initials(name: string) {
   return name.trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('');
 }
 
-type SiteRaw    = { id: string; nom: string; lat: number | null; lng: number | null; zoom_defaut: number };
-type InstRaw    = { id: string; nom: string; site_id: string; lat: number | null; lng: number | null; zoom_defaut: number };
-type DossierRaw = { id: string; nom: string; site_id: string | null; installation_id: string | null };
-
-interface TreeNode {
-  id:           string;
-  label:        string;
-  type:         'site' | 'installation' | 'plan' | 'dossier' | 'calque' | 'fichier' | 'group';
-  children?:    TreeNode[];
-  fichierUrl?:  string | null;
-  isUploadable?: boolean;
-  lat?:         number | null;
-  lng?:         number | null;
-  zoom?:        number;
-  svgUrl?:      string | null;
-  svgWidth?:    number | null;
-  svgHeight?:   number | null;
-}
-
-function findNode(nodes: TreeNode[], id: string): TreeNode | null {
-  for (const node of nodes) {
-    if (node.id === id) return node;
-    if (node.children) { const f = findNode(node.children, id); if (f) return f; }
-  }
-  return null;
-}
-
-function findPath(nodes: TreeNode[], targetId: string, path: TreeNode[] = []): TreeNode[] | null {
-  for (const node of nodes) {
-    const current = [...path, node];
-    if (node.id === targetId) return current;
-    if (node.children) {
-      const found = findPath(node.children, targetId, current);
-      if (found) return found;
-    }
-  }
-  return null;
-}
-
-function collectExpandableIds(nodes: TreeNode[], acc: Set<string> = new Set()): Set<string> {
-  for (const n of nodes) {
-    if (n.children && n.children.length > 0) {
-      acc.add(n.id);
-      collectExpandableIds(n.children, acc);
-    }
-  }
-  return acc;
-}
-
-function makeDossierNode(d: DossierRaw, fichiersByDossier: Record<string, FichierPdf[]>): TreeNode {
-  const fichiers = fichiersByDossier[d.id] ?? [];
-  return {
-    id: d.id, label: d.nom, type: 'dossier',
-    children: fichiers.length > 0
-      ? fichiers.map(f => ({ id: f.id, label: f.nom, type: 'fichier' as const, fichierUrl: f.storage_public_url, isUploadable: f.is_uploadable }))
-      : undefined,
-  };
-}
-
-function buildTree(
-  sites:             SiteRaw[],
-  insts:             InstRaw[],
-  dossiers:          DossierRaw[],
-  plans:             Plan[],
-  fichiersByDossier: Record<string, FichierPdf[]>,
-): TreeNode[] {
-  return sites.map(site => {
-    const siteDossiers = dossiers.filter(d => d.site_id === site.id && !d.installation_id);
-    const siteInsts    = insts.filter(i => i.site_id === site.id);
-    const children: TreeNode[] = [];
-
-    if (siteDossiers.length > 0) {
-      children.push({
-        id: `grp-docs-${site.id}`, label: 'Documents', type: 'group',
-        children: siteDossiers.map(d => makeDossierNode(d, fichiersByDossier)),
-      });
-    }
-
-    if (siteInsts.length > 0) {
-      children.push({
-        id: `grp-inst-${site.id}`, label: 'Installations', type: 'group',
-        children: siteInsts.map(inst => {
-          const instDossiers = dossiers.filter(d => d.installation_id === inst.id);
-          const instPlans    = plans.filter(p => p.installation_id === inst.id);
-          const instChildren: TreeNode[] = [];
-
-          if (instDossiers.length > 0) {
-            instChildren.push({
-              id: `grp-docs-${inst.id}`, label: 'Documents', type: 'group',
-              children: instDossiers.map(d => makeDossierNode(d, fichiersByDossier)),
-            });
-          }
-
-          if (instPlans.length > 0) {
-            instChildren.push({
-              id: `grp-plans-${inst.id}`, label: 'Plans', type: 'group',
-              children: instPlans.map(plan => ({
-                id: plan.id, label: plan.nom, type: 'plan' as const,
-                svgUrl: plan.svg_public_url, svgWidth: plan.largeur_px, svgHeight: plan.hauteur_px,
-              })),
-            });
-          }
-
-          return { id: inst.id, label: inst.nom, type: 'installation' as const, children: instChildren, lat: inst.lat, lng: inst.lng, zoom: inst.zoom_defaut };
-        }),
-      });
-    }
-
-    return { id: site.id, label: site.nom, type: 'site' as const, children, lat: site.lat, lng: site.lng, zoom: site.zoom_defaut };
-  });
-}
 
 const ICON_COLOR: Record<string, string> = {
   site:         '#378ADD',
@@ -332,20 +228,6 @@ function SidebarToggle({ open, onClick }: { open: boolean; onClick: () => void }
   );
 }
 
-function findNodeLabel(nodes: TreeNode[], id: string): string | null {
-  for (const n of nodes) {
-    if (n.id === id) return n.label;
-    if (n.children) { const r = findNodeLabel(n.children, id); if (r) return r; }
-  }
-  return null;
-}
-function findNodeType(nodes: TreeNode[], id: string): string | null {
-  for (const n of nodes) {
-    if (n.id === id) return n.type;
-    if (n.children) { const r = findNodeType(n.children, id); if (r) return r; }
-  }
-  return null;
-}
 
 export default function CartoPage() {
   const navigate = useNavigate();
@@ -353,33 +235,13 @@ export default function CartoPage() {
   const [avatarFailed,    setAvatarFailed]    = useState(false);
   const [viewportHeight,  setViewportHeight]  = useState(() => `${window.innerHeight}px`);
 
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef          = useRef<L.Map | null>(null);
-  const tileLayerRef    = useRef<L.TileLayer | null>(null);
-
   const location = useLocation();
   const pendingMapStateRef = useRef<MapStateFavori | null>(null);
 
-  const pendingNavRef = useRef<{ nodeId: string; expanded: string[] } | null>(
-    (location.state as { nodeId?: string; expanded?: string[] } | null)?.nodeId
-      ? { nodeId: (location.state as { nodeId: string; expanded: string[] }).nodeId, expanded: (location.state as { nodeId: string; expanded: string[] }).expanded ?? [] }
-      : null
-  );
-
-  const [tree,     setTree]     = useState<TreeNode[]>([]);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [counts,   setCounts]   = useState({ sites: 0, installations: 0, plans: 0, calques: 0 });
-  const [loading,  setLoading]  = useState(true);
-  const [basemap,     setBasemap]     = useState<'plan' | 'satellite'>('plan');
   const [zoom,        setZoom]        = useState(6);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [selected,    setSelected]    = useState<string | null>(null);
   const [pdfViewer,   setPdfViewer]   = useState<{ url: string; nom: string; isUploadable: boolean } | null>(null);
-  const [planViewer,  setPlanViewer]  = useState<{ url: string; nom: string; width: number | null; height: number | null; planId: string } | null>(null);
-  const planMapRef           = useRef<L.Map | null>(null);
-  const planMapContainerRef  = useRef<HTMLDivElement>(null);
-  const planMarkersRef       = useRef<L.Marker[]>([]);
-  const planPendingMarkerRef = useRef<L.CircleMarker | null>(null);
+  const [planViewer,  setPlanViewer]  = useState<PlanViewerState | null>(null);
   const planAddModeRef       = useRef(false);
   const planSelCalqueIdRef   = useRef<string | null>(null);
   const planMoveModeRef      = useRef(false);
@@ -406,6 +268,7 @@ export default function CartoPage() {
   const [planEditValues,     setPlanEditValues]     = useState<Record<string, string>>({});
   const [planEditSaving,     setPlanEditSaving]     = useState(false);
   const [planDeleteConfirm,  setPlanDeleteConfirm]  = useState(false);
+  const [deletePointError,   setDeletePointError]   = useState<string | null>(null);
 
   // State pour les calques géo des sites (carte principale)
   const [geoPointsMap,   setGeoPointsMap]   = useState<Record<string, Point[]>>({});
@@ -449,6 +312,32 @@ export default function CartoPage() {
   const [favorisAddOpen,  setFavorisAddOpen]  = useState(false);
   const [favorisRenaming, setFavorisRenaming] = useState<string | null>(null);
   const [favorisRenameVal, setFavorisRenameVal] = useState('');
+
+  const { tree, expanded, setExpanded, selected, setSelected, loading, counts, toggleNode } = useTreeData(location.state);
+
+  const { mapRef, mapContainerRef, tileLayerRef, basemap, switchBasemap } = useGeoMap(
+    setZoom,
+    (lat, lng) => {
+      if (geoAddModeRef.current && geoSelCalqueIdRef.current) {
+        setGeoPendingPos({ lat, lng });
+        setGeoPendingNom('');
+      }
+    },
+  );
+
+  const { planMapRef, planMapContainerRef, planMarkersRef, planPendingMarkerRef } = usePlanOverlay(
+    planViewer,
+    setZoom,
+    mapRef,
+    (x, y) => {
+      if (planAddModeRef.current) {
+        setPlanPendingPos({ x, y });
+        setPlanPendingNom('');
+      } else if (!planMoveModeRef.current) {
+        setPlanSelectedPoint(null);
+      }
+    },
+  );
 
   const isAdminAppOrData      = user?.role === ROLES.ADMIN_APP || user?.role === ROLES.ADMIN_DATA;
   const canEditGeo            = isAdminAppOrData || (calquesList.find(c => c.id === calquesActif)?.owner_id === user?.id);
@@ -537,62 +426,9 @@ export default function CartoPage() {
     navigate('/login');
   }
 
-  function toggleNode(id: string) {
-    setExpanded(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  }
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const [s, i, d, p] = await Promise.all([
-          db.list('sites'),
-          db.list('installations'),
-          db.list('dossiers'),
-          db.list('plans'),
-        ]);
-        if (cancelled) return;
-        const sites    = s.data as SiteRaw[];
-        const insts    = i.data as InstRaw[];
-        const dossiers = d.data as DossierRaw[];
-        const plans    = p.data as Plan[];
-
-        const fichierResults = await Promise.all(
-          dossiers.map(dos =>
-            db.listFichiersPdf(dos.id)
-              .then(r => ({ id: dos.id, fichiers: r.data }))
-              .catch(() => ({ id: dos.id, fichiers: [] as FichierPdf[] }))
-          )
-        );
-        if (cancelled) return;
-        const fichiersByDossier: Record<string, FichierPdf[]> = {};
-        for (const { id, fichiers } of fichierResults) fichiersByDossier[id] = fichiers;
-
-        setTree(buildTree(sites, insts, dossiers, plans, fichiersByDossier));
-        setCounts({ sites: sites.length, installations: insts.length, plans: plans.length, calques: 0 });
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
   useEffect(() => {
     db.listFavoris().then(r => setFavoris(r.data)).catch(() => {});
   }, []);
-
-  // Applique la navigation entrante (depuis tableau de bord) une fois l'arbre chargé
-  useEffect(() => {
-    if (tree.length === 0 || !pendingNavRef.current) return;
-    const { nodeId, expanded: ids } = pendingNavRef.current;
-    pendingNavRef.current = null;
-    setExpanded(new Set(ids));
-    setSelected(nodeId);
-  }, [tree]);
 
   async function saveFavori() {
     if (!selected || favorisSaving) return;
@@ -660,29 +496,6 @@ export default function CartoPage() {
     }
   }
 
-  const TILES = {
-    plan: {
-      url:            'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-      attribution:    '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxNativeZoom:  19,
-      maxZoom:        22,
-    },
-    satellite: {
-      url:            'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      attribution:    'Tiles &copy; Esri &mdash; Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP',
-      maxNativeZoom:  18,
-      maxZoom:        22,
-    },
-  };
-
-  function switchBasemap(next: 'plan' | 'satellite') {
-    if (!mapRef.current) return;
-    tileLayerRef.current?.remove();
-    const cfg = TILES[next];
-    tileLayerRef.current = L.tileLayer(cfg.url, { attribution: cfg.attribution, maxNativeZoom: cfg.maxNativeZoom, maxZoom: cfg.maxZoom })
-      .addTo(mapRef.current);
-    setBasemap(next);
-  }
 
   // ── Sync refs (évite les closures périmées dans les handlers Leaflet) ──────
   useEffect(() => {
@@ -724,45 +537,6 @@ export default function CartoPage() {
       .finally(() => setPhotosLoading(false));
   }, [planSelectedPoint]);
 
-  // ── Carte Leaflet CRS.Simple (plan non-géographique) ──────────────────────
-  useEffect(() => {
-    if (!planViewer || !planMapContainerRef.current) return;
-    const W = planViewer.width ?? 1000;
-    const H = planViewer.height ?? 1000;
-    const bounds: L.LatLngBoundsExpression = [[0, 0], [H, W]];
-
-    const map = L.map(planMapContainerRef.current, {
-      crs:              L.CRS.Simple,
-      minZoom:          -5,
-      maxZoom:          8,
-      zoomControl:      false,
-      attributionControl: false,
-    });
-
-    L.imageOverlay(planViewer.url, bounds).addTo(map);
-    map.fitBounds(bounds, { padding: [20, 20] });
-
-    map.on('zoomend', () => setZoom(Math.round(map.getZoom())));
-
-    map.on('click', (e: L.LeafletMouseEvent) => {
-      if (planAddModeRef.current) {
-        setPlanPendingPos({ x: e.latlng.lng, y: e.latlng.lat });
-        setPlanPendingNom('');
-        return;
-      }
-      if (!planMoveModeRef.current) setPlanSelectedPoint(null);
-    });
-
-    planMapRef.current = map;
-    return () => {
-      map.remove();
-      planMapRef.current     = null;
-      planMarkersRef.current = [];
-      planPendingMarkerRef.current?.remove();
-      planPendingMarkerRef.current = null;
-      setZoom(Math.round(mapRef.current?.getZoom() ?? 6));
-    };
-  }, [planViewer?.url]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Marqueurs des points existants ────────────────────────────────────────
   useEffect(() => {
@@ -1011,6 +785,7 @@ export default function CartoPage() {
 
   async function handleDeletePoint() {
     if (!planSelectedPoint) return;
+    setDeletePointError(null);
     try {
       await db.removePoint(planSelectedPoint.id);
       if (planViewer) {
@@ -1025,7 +800,10 @@ export default function CartoPage() {
         }));
       }
       setPlanSelectedPoint(null);
-    } catch {}
+      setPlanDeleteConfirm(false);
+    } catch (err) {
+      setDeletePointError(extractErrorMessage(err, 'Erreur lors de la suppression.'));
+    }
   }
 
   async function handleDeletePhoto(photo: Photo) {
@@ -1160,37 +938,6 @@ export default function CartoPage() {
     };
   }, []);
 
-  useEffect(() => {
-    if (mapRef.current || !mapContainerRef.current) return;
-
-    mapRef.current = L.map(mapContainerRef.current, {
-      center:      [46.2276, 2.2137],
-      zoom:        6,
-      zoomControl: false,
-      maxZoom:     22,
-    });
-
-    const cfg = TILES.plan;
-    tileLayerRef.current = L.tileLayer(cfg.url, { attribution: cfg.attribution, maxNativeZoom: cfg.maxNativeZoom, maxZoom: cfg.maxZoom })
-      .addTo(mapRef.current);
-
-    mapRef.current.on('zoomend', () => setZoom(mapRef.current!.getZoom()));
-
-    mapRef.current.on('click', (e: L.LeafletMouseEvent) => {
-      if (geoAddModeRef.current && geoSelCalqueIdRef.current) {
-        setGeoPendingPos({ lat: e.latlng.lat, lng: e.latlng.lng });
-        setGeoPendingNom('');
-      }
-    });
-
-    setTimeout(() => mapRef.current?.invalidateSize(), 0);
-
-    return () => {
-      mapRef.current?.remove();
-      mapRef.current     = null;
-      tileLayerRef.current = null;
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div style={{ height: viewportHeight, background: C.bg, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -1643,20 +1390,11 @@ export default function CartoPage() {
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                               </button>}
                               {/* Supprimer */}
-                              {canEditSelectedPoint && (planDeleteConfirm ? (
-                                <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                                  <button onClick={handleDeletePoint} title="Confirmer" style={{ ...s.panelIconBtn, color: '#E07A7A', borderColor: '#E07A7A40' }}>
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-                                  </button>
-                                  <button onClick={() => setPlanDeleteConfirm(false)} title="Annuler" style={s.panelIconBtn}>
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                  </button>
-                                </div>
-                              ) : (
-                                <button onClick={() => setPlanDeleteConfirm(true)} title="Supprimer" style={s.panelIconBtn}>
+                              {canEditSelectedPoint && (
+                                <button onClick={() => { setDeletePointError(null); setPlanDeleteConfirm(true); }} title="Supprimer" style={s.panelIconBtn}>
                                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                                 </button>
-                              ))}
+                              )}
                               {/* Fermer */}
                               <button onClick={() => setPlanSelectedPoint(null)} title="Fermer" style={{ ...s.panelIconBtn, marginLeft: 2 }}>
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -2087,6 +1825,40 @@ export default function CartoPage() {
           </div>
         );
       })()}
+
+      {/* ── Modale suppression point ── */}
+      {planDeleteConfirm && planSelectedPoint && (
+        <Modal
+          title="Confirmation"
+          onClose={() => { setPlanDeleteConfirm(false); setDeletePointError(null); }}
+          maxWidth={400}
+          footer={
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => { setPlanDeleteConfirm(false); setDeletePointError(null); }}
+                style={{ padding: '6px 16px', borderRadius: 6, border: `1px solid ${C.border}`, background: 'transparent', color: C.muted, fontSize: 13, cursor: 'pointer' }}
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleDeletePoint}
+                style={{ padding: '6px 16px', borderRadius: 6, border: 'none', background: '#C0392B', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+              >
+                Supprimer
+              </button>
+            </div>
+          }
+        >
+          {deletePointError && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--error-bg)', border: '1px solid var(--error-border)', borderRadius: 6, padding: '8px 12px', fontSize: 12, color: 'var(--danger)', marginBottom: 10 }}>
+              {deletePointError}
+            </div>
+          )}
+          <p style={{ color: C.muted, fontSize: 13, margin: 0 }}>
+            Supprimer le point <strong style={{ color: C.text }}>{planSelectedPoint.nom}</strong> ? Cette action est irréversible.
+          </p>
+        </Modal>
+      )}
 
       {/* ── FOOTER ── */}
       <div style={{ height: 28, background: C.surface, borderTop: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 6, padding: '0 14px', flexShrink: 0, fontSize: 11, color: C.muted, overflow: 'hidden' }}>

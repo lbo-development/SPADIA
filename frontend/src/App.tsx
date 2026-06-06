@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useAuth } from '@/context/AuthContext';
 import { ROLES } from '@/constants/roles';
 import LoginPage             from '@/pages/LoginPage';
@@ -45,6 +46,7 @@ function ProtectedDatabaseRoute({ children }: { children: React.ReactNode }) {
 export default function App() {
   const { isAuthenticated } = useAuth();
   return (
+    <ErrorBoundary>
     <Routes>
       <Route path="/login" element={
         isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />
@@ -81,5 +83,6 @@ export default function App() {
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </ErrorBoundary>
   );
 }

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { db } from '@/api/database';
 import { Modal } from '@/components/Modal';
 import { C } from '@/constants/colors';
+import { parseServerError, extractErrorMessage } from '@/lib/errors';
 
 export type FieldDef = {
   key: string;
@@ -113,28 +114,6 @@ function validate(fields: FieldDef[], form: Record<string, unknown>, mode: 'crea
   return errors;
 }
 
-// ── Mapping erreur serveur → champ ──────────────────────────────────────────
-
-function parseServerError(err: unknown): { fieldErrors: Record<string, string>; globalError: string | null } {
-  const resp = (err as { response?: { data?: { error?: { code?: string; message?: string } } } })
-    ?.response?.data?.error;
-  const code    = resp?.code    ?? '';
-  const message = resp?.message ?? 'Erreur lors de la sauvegarde.';
-  const lc = message.toLowerCase();
-  if (code === 'AUTH_ERROR') {
-    if (lc.includes('already') || lc.includes('exist') || lc.includes('email'))
-      return { fieldErrors: { email: 'Cet email est déjà utilisé.' }, globalError: null };
-    if (lc.includes('password') || lc.includes('mot de passe'))
-      return { fieldErrors: { password: message }, globalError: null };
-  }
-  if (code === 'INVALID_INPUT') {
-    if (lc.includes('email'))    return { fieldErrors: { email: message },    globalError: null };
-    if (lc.includes('nom'))      return { fieldErrors: { nom: message },      globalError: null };
-    if (lc.includes('password')) return { fieldErrors: { password: message }, globalError: null };
-  }
-  return { fieldErrors: {}, globalError: message };
-}
-
 // ── Icônes SVG ───────────────────────────────────────────────────────────────
 
 function PlusIcon()   {
@@ -178,6 +157,8 @@ export default function CrudPage({ entity, title, columns, fields, canWrite, can
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [deleteId, setDeleteId]       = useState<string | null>(null);
+  const [deleteError, setDeleteError]   = useState<string | null>(null);
+  const [reorderError, setReorderError] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarImgFailed, setAvatarImgFailed] = useState(false);
   const [dragging, setDragging]         = useState(false);
@@ -303,17 +284,27 @@ setRows(data as Row[]);
 
   async function handleSaveOrder() {
     setReordering(true);
+    setReorderError(null);
     try {
       await Promise.all(reorderList.map((row, i) => db.update(entity, row.id as string, { [orderKey]: i })));
       setReorderModal(false);
       await load();
-    } catch { /* géré par l'intercepteur */ }
-    finally { setReordering(false); }
+    } catch (err) {
+      setReorderError(extractErrorMessage(err, 'Erreur lors du réordonnancement.'));
+    } finally {
+      setReordering(false);
+    }
   }
 
   async function handleDelete(id: string) {
-    try { await db.remove(entity, id); setDeleteId(null); await load(); }
-    catch { /* géré par l'intercepteur */ }
+    setDeleteError(null);
+    try {
+      await db.remove(entity, id);
+      setDeleteId(null);
+      await load();
+    } catch (err) {
+      setDeleteError(extractErrorMessage(err, 'Erreur lors de la suppression.'));
+    }
   }
 
   // ── Rendu d'un champ ─────────────────────────────────────────────────────
@@ -725,6 +716,7 @@ setRows(data as Row[]);
             </div>
           }
         >
+          {reorderError && <div style={s.errBox}><ErrorIcon /> {reorderError}</div>}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {reorderList.map((row, i) => (
               <div
@@ -760,6 +752,7 @@ setRows(data as Row[]);
             </div>
           }
         >
+          {deleteError && <div style={{ ...s.errBox, marginBottom: 8 }}><ErrorIcon /> {deleteError}</div>}
           <p style={{ color: '#9BA8C0', fontSize: 13, margin: 0 }}>Cette action est irréversible.</p>
         </Modal>
       )}
