@@ -3,6 +3,7 @@ import { db } from '@/api/database';
 import { Modal } from '@/components/Modal';
 import { C } from '@/constants/colors';
 import { parseServerError, extractErrorMessage } from '@/lib/errors';
+import { Spinner } from '@/components/ui';
 
 export type FieldDef = {
   key: string;
@@ -611,7 +612,12 @@ setRows(data as Row[]);
       <div style={s.scrollArea}>
       {/* Table */}
       {loading ? (
-        <div style={s.loadWrap}><div style={s.loadSpinner} /></div>
+        <div style={s.loadWrap}>
+          <div style={s.loadCard}>
+            <Spinner size={26} />
+            <span style={{ fontSize: 12, color: C.muted }}>Chargement base de données…</span>
+          </div>
+        </div>
       ) : (
         <div style={s.tableWrap}>
           <table style={s.table}>
@@ -781,8 +787,8 @@ const s: Record<string, React.CSSProperties> = {
   filterSlot: { marginBottom: 16 },
 
   // ── Table ──
-  loadWrap:    { display: 'flex', justifyContent: 'center', padding: 60 },
-  loadSpinner: { width: 24, height: 24, border: `2px solid ${C.border}`, borderTopColor: C.accent, borderRadius: '50%', animation: 'spin 0.7s linear infinite' },
+  loadWrap: { display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 60 },
+  loadCard: { display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: 10, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: '18px 28px', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' },
   tableWrap:   { flex: 1, overflowX: 'auto' as const, overflowY: 'auto' as const, borderRadius: 10, border: `1px solid ${C.border}` },
   table:       { width: '100%', borderCollapse: 'collapse' as const, fontSize: 13 },
   th:          { padding: '10px 14px', background: C.surface2, color: C.muted, fontWeight: 600, fontSize: 11, textTransform: 'uppercase' as const, letterSpacing: '0.06em', textAlign: 'left' as const, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' as const, position: 'sticky' as const, top: 0, zIndex: 2 },

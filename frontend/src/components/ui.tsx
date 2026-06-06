@@ -67,11 +67,12 @@ export function Spinner({ size = 14 }: { size?: number }) {
   return (
     <svg
       width={size} height={size}
-      viewBox="0 0 24 24"
-      fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
-      style={{ animation: 'spin 0.7s linear infinite', flexShrink: 0 }}
+      viewBox="0 0 26 26"
+      fill="none"
+      style={{ animation: 'spin 0.75s linear infinite', flexShrink: 0 }}
     >
-      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+      <circle cx="13" cy="13" r="10" stroke={C.border} strokeWidth="2.5"/>
+      <path d="M13 3 A10 10 0 0 1 23 13" stroke={C.accent} strokeWidth="2.5" strokeLinecap="round"/>
     </svg>
   );
 }

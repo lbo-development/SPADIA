@@ -39,7 +39,7 @@ export function usePlanOverlay(
     });
 
     L.imageOverlay(planViewer.url, bounds).addTo(map);
-    map.fitBounds(bounds, { padding: [20, 20] });
+    map.fitBounds(bounds, { padding: [20, 20], animate: false });
 
     map.on('zoomend', () => setZoom(Math.round(map.getZoom())));
 

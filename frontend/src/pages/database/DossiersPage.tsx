@@ -4,6 +4,7 @@ import { ROLES } from '@/constants/roles';
 import { db, type FichierPdf } from '@/api/database';
 import { Modal } from '@/components/Modal';
 import { C } from '@/constants/colors';
+import { fmtDate } from '@/lib/date';
 
 // ── Icons ────────────────────────────────────────────────────────────────────
 
@@ -276,7 +277,6 @@ function FichierModal({ fichier, onSave, onClose }: {
 // ── Fichier details modal ─────────────────────────────────────────────────────
 
 function FichierDetailsModal({ fichier, onClose }: { fichier: FichierPdf; onClose: () => void }) {
-  const fmtDate = (v: string | null) => v ? new Date(v).toLocaleDateString('fr-FR') : null;
   const fmtDateTime = (v: string | null) => v ? new Date(v).toLocaleString('fr-FR') : '—';
 
   const rowStyle: React.CSSProperties = {

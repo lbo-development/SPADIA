@@ -287,6 +287,7 @@ export default function CartoPage() {
   const [carouselIndex,      setCarouselIndex]      = useState(0);
   const [photoDragOver,      setPhotoDragOver]      = useState(false);
   const [photoUploading,     setPhotoUploading]     = useState(false);
+  const [favoriApplying,    setFavoriApplying]    = useState(false);
   const [photoModalIndex,    setPhotoModalIndex]    = useState<number | null>(null);
   const [photoDeleteConfirm, setPhotoDeleteConfirm] = useState(false);
   const [dragFromPhotoIdx,   setDragFromPhotoIdx]   = useState<number | null>(null);
@@ -385,7 +386,8 @@ export default function CartoPage() {
           } else {
             if (calques.length > 0) setCalquesActif(calques[0].id);
           }
-        }).catch(() => {});
+          setFavoriApplying(false);
+        }).catch(() => { setFavoriApplying(false); });
       } else {
         const path = findPath(tree, node.id);
         const siteNode = path?.find(n => n.type === 'site');
@@ -411,9 +413,21 @@ export default function CartoPage() {
         setCalquesList([]); setGeoPointsMap({}); setCalquesActif(null);
         setGeoSiteNom(''); setGeoInstNom('');
         setGeoAddMode(false); setGeoMoveMode(false); setGeoPendingPos(null);
-        setPlanViewer({ url: node.svgUrl, nom: node.label, width: node.svgWidth ?? null, height: node.svgHeight ?? null, planId: node.id });
         setPlanAddMode(false); setPlanPendingPos(null); setPlanPendingNom(''); setPlanSelectedPoint(null);
         setPlanMoveMode(false);
+        if (planViewer?.planId === node.id) {
+          // Même plan déjà ouvert — l'effet calques ne se re-déclenchera pas (URL inchangée)
+          // → restaurer la position directement sans recharger
+          const pending = pendingMapStateRef.current;
+          if (pending?.context === 'plan') {
+            pendingMapStateRef.current = null;
+            setPlanSelCalqueId(pending.calques_actif);
+            planMapRef.current?.setView([pending.lat, pending.lng], pending.zoom, { animate: false });
+          }
+          setFavoriApplying(false);
+        } else {
+          setPlanViewer({ url: node.svgUrl, nom: node.label, width: node.svgWidth ?? null, height: node.svgHeight ?? null, planId: node.id });
+        }
       }
       return;
     }
@@ -490,9 +504,11 @@ export default function CartoPage() {
     setSelected(f.node_id);
     setFavorisPanelOpen(false);
     if (f.map_state) {
+      setFavoriApplying(true);
       pendingMapStateRef.current = f.map_state;
       const targetNode = findNode(tree, f.map_state.load_id);
       if (targetNode) handleNodeDoubleClick(targetNode);
+      else setFavoriApplying(false);
     }
   }
 
@@ -685,11 +701,10 @@ export default function CartoPage() {
       for (const { id, pts } of results) byCalque[id] = pts;
       setPlanPointsMap(byCalque);
       if (pending?.context === 'plan') {
-        setTimeout(() => {
-          planMapRef.current?.setView([pending.lat, pending.lng], pending.zoom, { animate: false });
-        }, 150);
+        planMapRef.current?.setView([pending.lat, pending.lng], pending.zoom, { animate: false });
+        setFavoriApplying(false);
       }
-    }).catch(() => {});
+    }).catch(() => { setFavoriApplying(false); });
   }, [planViewer?.url]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const EXCLUDED_PROPS = new Set(['marker-size', 'marker-color']);
@@ -1679,6 +1694,19 @@ export default function CartoPage() {
           </div>
         );
       })()}
+
+          {/* Spinner — chargement favori */}
+          {favoriApplying && (
+            <div style={{ position: 'absolute', inset: 0, zIndex: 900, background: 'rgba(0,0,0,0.40)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: '18px 28px', boxShadow: '0 4px 24px rgba(0,0,0,0.5)' }}>
+                <svg width="26" height="26" viewBox="0 0 26 26" fill="none" style={{ animation: 'spin 0.75s linear infinite' }}>
+                  <circle cx="13" cy="13" r="10" stroke={C.border} strokeWidth="2.5"/>
+                  <path d="M13 3 A10 10 0 0 1 23 13" stroke={C.accent} strokeWidth="2.5" strokeLinecap="round"/>
+                </svg>
+                <span style={{ fontSize: 12, color: C.muted }}>Chargement du favori…</span>
+              </div>
+            </div>
+          )}
 
           </div>{/* end zone carte */}
 

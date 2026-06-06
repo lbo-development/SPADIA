@@ -282,8 +282,9 @@ export default function ValiderDemandesPage() {
       <div style={{ padding: '24px 40px 32px' }}>
         <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
           {loading ? (
-            <div style={{ padding: '48px 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, color: C.muted }}>
-              <Spinner /><span style={{ fontSize: 13 }}>Chargement…</span>
+            <div style={{ padding: '48px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+              <Spinner size={26} />
+              <span style={{ fontSize: 12, color: C.muted }}>Chargement…</span>
             </div>
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>

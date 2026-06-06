@@ -4,7 +4,8 @@ import { db, type PourValidation } from '@/api/database';
 import { Modal } from '@/components/Modal';
 import { inputStyle as inp, btnStyle, Label, FormSection, Spinner } from '@/components/ui';
 import { C } from '@/constants/colors';
-import { Pill, EntityIcon, InfoRow, IconPlan, payloadNom, fullDate, relativeTime, type RefOption } from './shared';
+import { Pill, EntityIcon, InfoRow, IconPlan, payloadNom, fullDate, relativeTime } from './shared';
+import { SiteInstallSelect, type RefOption } from '@/components/SiteInstallSelect';
 
 export function TraiterPlanModal({ pv, onClose, onUpdated }: {
   pv: PourValidation;
@@ -37,7 +38,6 @@ export function TraiterPlanModal({ pv, onClose, onUpdated }: {
     db.list('installations').then(({ data }) => setInstallations(data as RefOption[])).catch(() => {});
   }, []);
 
-  const filteredInstalls = siteId ? installations.filter(i => i.site_id === siteId) : [];
 
   async function handleDecision(statut: 'Validé' | 'A compléter' | 'Rejeté' | 'En attente') {
     if (statut === 'Validé') {
@@ -179,21 +179,16 @@ export function TraiterPlanModal({ pv, onClose, onUpdated }: {
           ))}
         </div>
         {avecRattachement && (
-          <>
-            <div><Label>Site *</Label>
-              <select value={siteId} onChange={e => { setSiteId(e.target.value); setInstallId(''); }} style={{ ...inp, height: 36, cursor: 'pointer' }}>
-                <option value="">— Sélectionner un site —</option>
-                {sites.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}
-              </select>
-            </div>
-            <div><Label>Installation</Label>
-              <select value={installId} onChange={e => setInstallId(e.target.value)} disabled={!siteId}
-                style={{ ...inp, height: 36, cursor: siteId ? 'pointer' : 'not-allowed', opacity: siteId ? 1 : 0.4 }}>
-                <option value="">— Sélectionner une installation —</option>
-                {filteredInstalls.map(i => <option key={i.id} value={i.id}>{i.nom}</option>)}
-              </select>
-            </div>
-          </>
+          <SiteInstallSelect
+            siteId={siteId}
+            installId={installId}
+            onSiteChange={id => { setSiteId(id); setInstallId(''); }}
+            onInstallChange={setInstallId}
+            sites={sites}
+            installations={installations}
+            siteLabel="Site *"
+            installPlaceholder="— Sélectionner une installation —"
+          />
         )}
       </FormSection>
 

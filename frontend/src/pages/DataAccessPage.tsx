@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { dashboardApi, type DashboardData, type DashboardPV, type DashboardCalque, type DashboardFavori } from '@/api/dashboard';
 import { C } from '@/constants/colors';
+import { Spinner } from '@/components/ui';
+import { fmtDate } from '@/lib/date';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -27,11 +29,6 @@ function calqueNavState(c: DashboardCalque): { nodeId: string; expanded: string[
   return { nodeId: '', expanded: [] };
 }
 
-function fmtDate(s: string | null): string {
-  if (!s) return '—';
-  try { return new Date(s).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
-  catch { return '—'; }
-}
 
 function pvNom(pv: DashboardPV): string {
   const n = (pv.payload as Record<string, unknown>)?.nom;
@@ -45,11 +42,6 @@ function pvContext(pv: DashboardPV): string {
 
 // ── Micro-composants ─────────────────────────────────────────────────────────
 
-function Spinner() {
-  return (
-    <div style={{ width: 20, height: 20, border: '2px solid var(--accent-33)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-  );
-}
 
 function SectionHeader({ label }: { label: string }) {
   return (
@@ -361,8 +353,11 @@ export default function DataAccessPage() {
       </div>
 
       {loading && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: C.muted, fontSize: 'var(--text-sm)' }}>
-          <Spinner /> Chargement…
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: '18px 28px', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
+            <Spinner size={26} />
+            <span style={{ fontSize: 12, color: C.muted }}>Chargement du tableau de bord…</span>
+          </div>
         </div>
       )}
 

@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import type { PourValidation, Marker } from '@/api/database';
 import { C } from '@/constants/colors';
+import { fullDate as _fullDate, relativeTime as _relativeTime } from '@/lib/date';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type PropRow   = { key: string; defaultVal: string };
-export type RefOption = { id: string; nom: string; site_id?: string; installation_id?: string | null };
+export type PropRow = { key: string; defaultVal: string };
+export type { RefOption } from '@/components/SiteInstallSelect';
 
 export const SYSTEM_PROPS = ['marker-color', 'marker-size'];
 
@@ -76,22 +77,8 @@ export function EntityIcon({ type, size = 16 }: { type: PourValidation['entity_t
 
 // ── Formatage ─────────────────────────────────────────────────────────────────
 
-export function relativeTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const s = Math.floor(diff / 1000);
-  if (s < 60)  return 'à l\'instant';
-  const m = Math.floor(s / 60);
-  if (m < 60)  return `il y a ${m} min`;
-  const h = Math.floor(m / 60);
-  if (h < 24)  return `il y a ${h} h`;
-  const d = Math.floor(h / 24);
-  if (d < 30)  return `il y a ${d} j`;
-  return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-}
-
-export function fullDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-}
+export function relativeTime(iso: string): string { return _relativeTime(iso); }
+export function fullDate(iso: string): string      { return _fullDate(iso); }
 
 export function payloadNom(pv: PourValidation): string {
   return (pv.payload as { nom?: string })?.nom ?? '—';

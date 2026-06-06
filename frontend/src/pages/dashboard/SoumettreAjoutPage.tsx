@@ -4,6 +4,7 @@ import { db } from '@/api/database';
 import { Modal } from '@/components/Modal';
 import { C } from '@/constants/colors';
 import { inputStyle as inp, btnStyle as btn, Label, FormSection, Spinner } from '@/components/ui';
+import { type RefOption } from '@/components/SiteInstallSelect';
 
 // ── NumSpinner ────────────────────────────────────────────────────────────────
 
@@ -62,7 +63,6 @@ function IconCalque({ size = 40, color = C.accent }: { size?: number; color?: st
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type EntityType = 'fichier_pdf' | 'plan' | 'calque';
-type RefOption  = { id: string; nom: string; site_id?: string; installation_id?: string | null };
 type AdminUser  = { id: string; nom: string };
 
 // ── Succès dans modale ────────────────────────────────────────────────────────
@@ -97,37 +97,6 @@ function RattachementToggle({ value, onChange }: { value: boolean; onChange: (v:
     <div style={{ display: 'flex', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: 3, gap: 2 }}>
       <button type="button" style={seg(value)}  onClick={() => onChange(true)}>Avec rattachement</button>
       <button type="button" style={seg(!value)} onClick={() => onChange(false)}>Sans rattachement</button>
-    </div>
-  );
-}
-
-// ── Sélecteurs site / installation (partagés) ─────────────────────────────────
-
-function SiteInstallSelect({ siteId, installId, onSiteChange, onInstallChange, sites, installations }: {
-  siteId: string; installId: string;
-  onSiteChange: (id: string) => void;
-  onInstallChange: (id: string) => void;
-  sites: RefOption[];
-  installations: RefOption[];
-}) {
-  const filtered = siteId ? installations.filter(i => i.site_id === siteId) : installations;
-  return (
-    <div style={{ display: 'flex', gap: 16 }}>
-      <div style={{ flex: 1 }}>
-        <Label>Site</Label>
-        <select value={siteId} onChange={e => onSiteChange(e.target.value)} style={{ ...inp, height: 36 }}>
-          <option value="">— Sélectionner un site —</option>
-          {sites.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}
-        </select>
-      </div>
-      <div style={{ flex: 1 }}>
-        <Label>Installation</Label>
-        <select value={installId} onChange={e => onInstallChange(e.target.value)}
-          style={{ ...inp, height: 36, opacity: !siteId ? 0.45 : 1 }} disabled={!siteId}>
-          <option value="">— Toutes —</option>
-          {filtered.map(i => <option key={i.id} value={i.id}>{i.nom}</option>)}
-        </select>
-      </div>
     </div>
   );
 }
