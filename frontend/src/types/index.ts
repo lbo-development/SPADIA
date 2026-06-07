@@ -1,5 +1,6 @@
 export type Role = 'Admin_app' | 'Admin_data' | 'User' | 'Viewer';
 export type Statut = 'En attente' | 'A compléter' | 'Validé' | 'Rejeté';
+export const STATUTS = ['En attente', 'A compléter', 'Validé', 'Rejeté'] as const;
 
 export interface UserProfile {
   id: string;

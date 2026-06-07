@@ -4,6 +4,7 @@ import { ROLES } from '@/constants/roles';
 import { db, type Marker } from '@/api/database';
 import { Modal } from '@/components/Modal';
 import { C } from '@/constants/colors';
+import { extractErrorMessage } from '@/lib/errors';
 
 const btn = (color = C.accent, outlined = false) => ({
   display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px',
@@ -177,7 +178,7 @@ function MarkerModal({ initial, onSave, onClose }: {
     try {
       const { data } = await db.uploadMarker(file);
       setForm(f => ({ ...f, storage_path: data.path, preview_url: data.url, ...(data.color ? { couleur: data.color } : {}) }));
-    } catch { setErr("Erreur lors de l'upload."); }
+    } catch (e) { setErr(extractErrorMessage(e, "Erreur lors de l'upload.")); }
     finally { setUploading(false); }
   }
 
@@ -200,7 +201,7 @@ function MarkerModal({ initial, onSave, onClose }: {
     if (!form.storage_path) { setErr('Un fichier SVG est requis.'); return; }
     setSaving(true); setErr('');
     try { await onSave(form); onClose(); }
-    catch { setErr('Erreur lors de la sauvegarde.'); }
+    catch (e) { setErr(extractErrorMessage(e, 'Erreur lors de la sauvegarde.')); }
     finally { setSaving(false); }
   }
 

@@ -615,7 +615,7 @@ setRows(data as Row[]);
         <div style={s.loadWrap}>
           <div style={s.loadCard}>
             <Spinner size={26} />
-            <span style={{ fontSize: 12, color: C.muted }}>Chargement base de données…</span>
+            <span style={{ fontSize: 12, color: C.muted, textAlign: 'center' }}>Chargement base de données…</span>
           </div>
         </div>
       ) : (

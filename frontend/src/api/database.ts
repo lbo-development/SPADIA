@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import type { Statut } from '@/types';
 
 export type Calque = {
   id: string;
@@ -107,7 +108,7 @@ export type PourValidation = {
   validateur_nom: string;
   storage_path_temp: string | null;
   storage_temp_public_url: string | null;
-  statut: 'En attente' | 'A compléter' | 'Validé' | 'Rejeté';
+  statut: Statut;
   date_validation: string | null;
   commentaire_admin: string | null;
   id_valide: string | null;
@@ -136,7 +137,7 @@ export type Photo = {
   storage_path: string;
   public_url: string | null;
   file_type: 'image' | 'pdf';
-  statut: 'En attente' | 'A compléter' | 'Validé' | 'Rejeté';
+  statut: Statut;
   created_at: string;
   updated_at: string;
 };

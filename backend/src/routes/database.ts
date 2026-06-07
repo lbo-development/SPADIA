@@ -1258,7 +1258,7 @@ router.post('/upload/svg_temp', authMiddleware, requireRole(allRoles),
 
 // ── Config (bornes métier exposées au frontend) ──────────────────────────────
 
-export const ACCREDITATION_BOUNDS = { min: 0, max: 4 } as const;
+export const ACCREDITATION_BOUNDS = { min: 0, max: 3 } as const;
 
 function clampAccred(value: unknown): number {
   const n = parseInt(String(value ?? 0), 10);

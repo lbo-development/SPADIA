@@ -4,7 +4,7 @@ import { db, type PourValidation } from '@/api/database';
 import { Modal } from '@/components/Modal';
 import { inputStyle as inp, btnStyle, Label, FormSection, Spinner } from '@/components/ui';
 import { C } from '@/constants/colors';
-import { TYPE_META, Pill, EntityIcon, InfoRow, payloadNom, fullDate, relativeTime, type RefOption } from './shared';
+import { TYPE_META, Pill, EntityIcon, InfoRow, payloadNom, fullDate, relativeTime, type RefOption, type Statut } from './shared';
 
 export function TraiterModal({ pv, onClose, onUpdated }: {
   pv: PourValidation;
@@ -67,7 +67,7 @@ export function TraiterModal({ pv, onClose, onUpdated }: {
     finally { setUploading(false); }
   }
 
-  async function handleDecision(statut: 'Validé' | 'A compléter' | 'Rejeté' | 'En attente') {
+  async function handleDecision(statut: Statut) {
     if (statut === 'Validé') {
       if (!avecRattachement) { setError('Un rattachement est obligatoire pour valider.'); return; }
       if (!siteId)           { setError('Un site est requis pour le rattachement.'); return; }

@@ -5,6 +5,7 @@ import { db, type FichierPdf } from '@/api/database';
 import { Modal } from '@/components/Modal';
 import { C } from '@/constants/colors';
 import { fmtDate } from '@/lib/date';
+import { extractErrorMessage } from '@/lib/errors';
 
 // ── Icons ────────────────────────────────────────────────────────────────────
 
@@ -122,7 +123,7 @@ function DossierModal({
     if (!form.nom.trim() || !form.site_id) { setErr('Nom et Site sont requis.'); return; }
     setSaving(true); setErr('');
     try { await onSave(form); onClose(); }
-    catch { setErr('Erreur lors de la sauvegarde.'); }
+    catch (e) { setErr(extractErrorMessage(e, 'Erreur lors de la sauvegarde.')); }
     finally { setSaving(false); }
   }
 
@@ -206,7 +207,7 @@ function FichierModal({ fichier, onSave, onClose }: {
     if (!form.nom.trim()) { setErr('Le nom est requis.'); return; }
     setSaving(true); setErr('');
     try { await onSave(form); onClose(); }
-    catch { setErr('Erreur lors de la sauvegarde.'); }
+    catch (e) { setErr(extractErrorMessage(e, 'Erreur lors de la sauvegarde.')); }
     finally { setSaving(false); }
   }
 
@@ -234,7 +235,7 @@ function FichierModal({ fichier, onSave, onClose }: {
           </div>
           <div style={{ display: 'flex', gap: 12 }}>
             <div style={{ flex: 1 }}>
-              <label style={{ fontSize: 12, color: C.muted, display: 'block', marginBottom: 5 }}>Niveau d'accréditation (0-4)</label>
+              <label style={{ fontSize: 12, color: C.muted, display: 'block', marginBottom: 5 }}>Niveau d'accréditation (0-3)</label>
               <div style={{ display: 'flex', alignItems: 'center', height: 38, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 7, overflow: 'hidden' }}>
                 <button type="button"
                   style={{ width: 38, height: 38, flexShrink: 0, background: 'transparent', border: 'none', color: form.niveau_accreditation <= 0 ? C.border : C.accent, fontSize: 20, fontWeight: 300, cursor: form.niveau_accreditation <= 0 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}
@@ -245,15 +246,15 @@ function FichierModal({ fichier, onSave, onClose }: {
                 <input
                   type="text" inputMode="numeric"
                   value={String(form.niveau_accreditation)}
-                  onChange={e => { const n = parseInt(e.target.value, 10); setForm(f => ({ ...f, niveau_accreditation: isNaN(n) ? 0 : Math.min(4, Math.max(0, n)) })); }}
+                  onChange={e => { const n = parseInt(e.target.value, 10); setForm(f => ({ ...f, niveau_accreditation: isNaN(n) ? 0 : Math.min(3, Math.max(0, n)) })); }}
                   style={{ flex: 1, height: 38, background: 'transparent', border: 'none', textAlign: 'center', fontSize: 14, fontWeight: 600, color: C.text, outline: 'none', minWidth: 0 }}
                 />
-                <span style={{ fontSize: 10, color: C.muted, padding: '0 6px', whiteSpace: 'nowrap', flexShrink: 0 }}>0–4</span>
+                <span style={{ fontSize: 10, color: C.muted, padding: '0 6px', whiteSpace: 'nowrap', flexShrink: 0 }}>0–3</span>
                 <div style={{ width: 1, height: 18, background: C.border, flexShrink: 0 }} />
                 <button type="button"
-                  style={{ width: 38, height: 38, flexShrink: 0, background: 'transparent', border: 'none', color: form.niveau_accreditation >= 4 ? C.border : C.accent, fontSize: 20, fontWeight: 300, cursor: form.niveau_accreditation >= 4 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}
-                  disabled={form.niveau_accreditation >= 4}
-                  onClick={() => setForm(f => ({ ...f, niveau_accreditation: Math.min(4, f.niveau_accreditation + 1) }))}
+                  style={{ width: 38, height: 38, flexShrink: 0, background: 'transparent', border: 'none', color: form.niveau_accreditation >= 3 ? C.border : C.accent, fontSize: 20, fontWeight: 300, cursor: form.niveau_accreditation >= 3 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}
+                  disabled={form.niveau_accreditation >= 3}
+                  onClick={() => setForm(f => ({ ...f, niveau_accreditation: Math.min(3, f.niveau_accreditation + 1) }))}
                 >+</button>
               </div>
             </div>

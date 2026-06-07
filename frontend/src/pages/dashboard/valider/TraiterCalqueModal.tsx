@@ -4,7 +4,7 @@ import { db, type PourValidation, type Marker } from '@/api/database';
 import { Modal } from '@/components/Modal';
 import { inputStyle as inp, btnStyle, Label, FormSection, Spinner } from '@/components/ui';
 import { C } from '@/constants/colors';
-import { EntityIcon, InfoRow, RattachBadge, payloadNom, fullDate, relativeTime, MarkerPickerDropdown, SYSTEM_PROPS, type PropRow, type RefOption } from './shared';
+import { EntityIcon, InfoRow, RattachBadge, payloadNom, fullDate, relativeTime, MarkerPickerDropdown, SYSTEM_PROPS, type PropRow, type RefOption, type Statut } from './shared';
 
 export function TraiterCalqueModal({ pv, onClose, onUpdated }: {
   pv: PourValidation;
@@ -63,7 +63,7 @@ export function TraiterCalqueModal({ pv, onClose, onUpdated }: {
   function handleSiteChange(id: string)    { setSiteId(id); setInstallId(''); setPlanId(''); }
   function handleInstallChange(id: string) { setInstallId(id); setPlanId(''); }
 
-  async function handleDecision(statut: 'Validé' | 'A compléter' | 'Rejeté' | 'En attente') {
+  async function handleDecision(statut: Statut) {
     if (statut === 'Validé') {
       if (!nom.trim())       { setError('Le nom est requis.'); return; }
       if (!avecRattachement) { setError('Un rattachement est obligatoire pour valider.'); return; }

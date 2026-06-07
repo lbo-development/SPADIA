@@ -7,6 +7,7 @@ import { fullDate as _fullDate, relativeTime as _relativeTime } from '@/lib/date
 
 export type PropRow = { key: string; defaultVal: string };
 export type { RefOption } from '@/components/SiteInstallSelect';
+export type { Statut } from '@/types';
 
 export const SYSTEM_PROPS = ['marker-color', 'marker-size'];
 

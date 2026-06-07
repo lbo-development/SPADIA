@@ -5,6 +5,7 @@ import { ROLES } from '@/constants/roles';
 import AppNav from '@/components/AppNav';
 import { Modal } from '@/components/Modal';
 import { extractErrorMessage } from '@/lib/errors';
+import { Spinner } from '@/components/ui';
 import { db } from '@/api/database';
 import type { Calque, Point, Photo, Favori, MapStateFavori } from '@/api/database';
 import * as XLSX from 'xlsx';
@@ -1070,7 +1071,14 @@ export default function CartoPage() {
             </div>
           ) : (
             <div className="scrollbar-styled" style={{ flex: 1, overflowY: 'auto', padding: '6px 0' }}>
-              {loading && <p style={{ padding: '14px 12px', fontSize: 12, color: C.muted, margin: 0 }}>Chargement…</p>}
+              {loading && (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 12px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: '18px 24px', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
+                    <Spinner size={26} />
+                    <span style={{ fontSize: 12, color: C.muted, textAlign: 'center' }}>Chargement de l'arborescence…</span>
+                  </div>
+                </div>
+              )}
               {!loading && tree.length === 0 && <p style={{ padding: '14px 12px', fontSize: 12, color: C.muted, margin: 0 }}>Aucun site disponible.</p>}
               {tree.map(node => (
                 <TreeItem key={node.id} node={node} depth={0} expanded={expanded} selected={selected} onToggle={toggleNode} onSelect={setSelected} onDoubleClick={handleNodeDoubleClick} />
@@ -1703,7 +1711,7 @@ export default function CartoPage() {
                   <circle cx="13" cy="13" r="10" stroke={C.border} strokeWidth="2.5"/>
                   <path d="M13 3 A10 10 0 0 1 23 13" stroke={C.accent} strokeWidth="2.5" strokeLinecap="round"/>
                 </svg>
-                <span style={{ fontSize: 12, color: C.muted }}>Chargement du favori…</span>
+                <span style={{ fontSize: 12, color: C.muted, textAlign: 'center' }}>Chargement du favori…</span>
               </div>
             </div>
           )}

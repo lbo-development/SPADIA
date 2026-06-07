@@ -9,10 +9,11 @@ import { TraiterCalqueModal } from './valider/TraiterCalqueModal';
 import { TraiterPlanModal } from './valider/TraiterPlanModal';
 import { VoirEntityModal } from './valider/VoirEntityModal';
 import { TYPE_META, Pill, RattachBadge, EntityIcon, payloadNom } from './valider/shared';
+import { type Statut } from '@/types';
 
 // ── Types page ────────────────────────────────────────────────────────────────
 
-type Tab     = 'En attente' | 'A compléter' | 'Validé' | 'Rejeté';
+type Tab     = Statut;
 type SortCol = 'type' | 'validateur' | 'rattachement' | 'date';
 
 function sortPV(list: PourValidation[], col: SortCol, dir: 'asc' | 'desc'): PourValidation[] {

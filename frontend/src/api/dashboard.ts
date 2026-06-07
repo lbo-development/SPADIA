@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import type { Statut } from '@/types';
 
 export interface DashboardStats {
   sites_total:          number;
@@ -38,7 +39,7 @@ export interface DashboardPV {
   avec_rattachement: boolean;
   validateur_id:    string | null;
   validateur_nom:   string;
-  statut:           'En attente' | 'A compléter' | 'Validé' | 'Rejeté';
+  statut:           Statut;
   date_validation:  string | null;
   commentaire_admin: string | null;
   id_valide:        string | null;

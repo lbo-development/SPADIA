@@ -4,7 +4,7 @@ import { db, type PourValidation } from '@/api/database';
 import { Modal } from '@/components/Modal';
 import { inputStyle as inp, btnStyle, Label, FormSection, Spinner } from '@/components/ui';
 import { C } from '@/constants/colors';
-import { Pill, EntityIcon, InfoRow, IconPlan, payloadNom, fullDate, relativeTime } from './shared';
+import { Pill, EntityIcon, InfoRow, IconPlan, payloadNom, fullDate, relativeTime, type Statut } from './shared';
 import { SiteInstallSelect, type RefOption } from '@/components/SiteInstallSelect';
 
 export function TraiterPlanModal({ pv, onClose, onUpdated }: {
@@ -39,7 +39,7 @@ export function TraiterPlanModal({ pv, onClose, onUpdated }: {
   }, []);
 
 
-  async function handleDecision(statut: 'Validé' | 'A compléter' | 'Rejeté' | 'En attente') {
+  async function handleDecision(statut: Statut) {
     if (statut === 'Validé') {
       if (!nom.trim())       { setError('Le nom est requis.'); return; }
       if (!avecRattachement) { setError('Un rattachement est obligatoire pour valider.'); return; }

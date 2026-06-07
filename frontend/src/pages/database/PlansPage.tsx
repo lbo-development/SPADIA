@@ -5,6 +5,7 @@ import { db } from '@/api/database';
 import { Modal } from '@/components/Modal';
 import { C } from '@/constants/colors';
 import { PlanRow, GRID, type Plan } from './PlanCalquesSection';
+import { extractErrorMessage } from '@/lib/errors';
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -85,7 +86,7 @@ function PlanModal({ initial, siteOptions, installOptions, userOptions, onSave, 
     if (!form.nom.trim() || !form.site_id || !form.installation_id) { setErr('Nom, Site et Installation sont requis.'); return; }
     setSaving(true); setErr('');
     try { await onSave(form); onClose(); }
-    catch { setErr('Erreur lors de la sauvegarde.'); }
+    catch (e) { setErr(extractErrorMessage(e, 'Erreur lors de la sauvegarde.')); }
     finally { setSaving(false); }
   }
 
@@ -145,7 +146,7 @@ function PlanModal({ initial, siteOptions, installOptions, userOptions, onSave, 
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: C.success, flexShrink: 0 }} />
             <span style={{ fontSize: 11, color: C.muted, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={initial.svg_path}>{initial.svg_path}</span>
             <button type="button" disabled={deletingSvg || saving}
-              onClick={async () => { setDeletingSvg(true); try { await onDeleteSvg(); } catch { setErr('Erreur suppression SVG.'); } finally { setDeletingSvg(false); } }}
+              onClick={async () => { setDeletingSvg(true); try { await onDeleteSvg(); } catch (e) { setErr(extractErrorMessage(e, 'Erreur suppression SVG.')); } finally { setDeletingSvg(false); } }}
               style={{ ...btn(C.danger), padding: '3px 10px', fontSize: 11, flexShrink: 0 }}>
               {deletingSvg ? '…' : 'Supprimer le SVG'}
             </button>

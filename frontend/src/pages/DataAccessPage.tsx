@@ -5,6 +5,7 @@ import { dashboardApi, type DashboardData, type DashboardPV, type DashboardCalqu
 import { C } from '@/constants/colors';
 import { Spinner } from '@/components/ui';
 import { fmtDate } from '@/lib/date';
+import { type Statut } from '@/types';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -55,16 +56,14 @@ function SectionHeader({ label }: { label: string }) {
   );
 }
 
-type StatutValue = 'En attente' | 'A compléter' | 'Validé' | 'Rejeté';
-
-const STATUT_STYLE: Record<StatutValue, { bg: string; color: string; label: string }> = {
+const STATUT_STYLE: Record<Statut, { bg: string; color: string; label: string }> = {
   'En attente':  { bg: 'var(--warning-18, #f59e0b18)', color: 'var(--warning)', label: 'En attente' },
   'A compléter': { bg: 'var(--accent-14)',              color: 'var(--accent)',   label: 'À compléter' },
   'Validé':      { bg: 'var(--success-18)',              color: 'var(--success)', label: 'Validé' },
   'Rejeté':      { bg: 'var(--danger-44)',               color: 'var(--danger)',  label: 'Rejeté' },
 };
 
-function StatutBadge({ statut }: { statut: StatutValue }) {
+function StatutBadge({ statut }: { statut: Statut }) {
   const s = STATUT_STYLE[statut] ?? STATUT_STYLE['En attente'];
   return (
     <span style={{
@@ -356,7 +355,7 @@ export default function DataAccessPage() {
         <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: '18px 28px', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
             <Spinner size={26} />
-            <span style={{ fontSize: 12, color: C.muted }}>Chargement du tableau de bord…</span>
+            <span style={{ fontSize: 12, color: C.muted, textAlign: 'center' }}>Chargement du tableau de bord…</span>
           </div>
         </div>
       )}
