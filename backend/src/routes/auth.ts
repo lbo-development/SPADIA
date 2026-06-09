@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import rateLimit from 'express-rate-limit';
 import { supabase } from '../supabase/client';
 import { authMiddleware, AuthenticatedRequest } from '../middlewares/auth';
+import { logger } from '../lib/logger';
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -41,7 +42,7 @@ router.post('/login', loginLimiter, async (req: Request, res: Response): Promise
     .single();
 
   if (profileError || !profile) {
-    console.error('[login] Profile error:', profileError);
+    logger.error({ err: profileError, route: 'POST /login' }, 'Profile error');
     res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Profil introuvable.', details: null } });
     return;
   }
@@ -60,7 +61,7 @@ router.post('/login', loginLimiter, async (req: Request, res: Response): Promise
     .eq('id', userId);
 
   if (updateError) {
-    console.error('[login] Update error:', updateError);
+    logger.error({ err: updateError, route: 'POST /login' }, 'Update error');
     res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Impossible de créer la session.', details: null } });
     return;
   }

@@ -4,7 +4,7 @@ import { db } from '@/api/database';
 import { Modal } from '@/components/Modal';
 import { C } from '@/constants/colors';
 import { inputStyle as inp, btnStyle as btn, Label, FormSection, Spinner } from '@/components/ui';
-import { type RefOption } from '@/components/SiteInstallSelect';
+import { SiteInstallSelect, type RefOption } from '@/components/SiteInstallSelect';
 
 // ── NumSpinner ────────────────────────────────────────────────────────────────
 
@@ -125,11 +125,6 @@ function PdfModal({ onClose, sites, installations, dossiers, admins }: {
   const [error,       setError]       = useState('');
   const [success,     setSuccess]     = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-
-  // Cascade : installations filtrées par site sélectionné
-  const filteredInstallations = siteId
-    ? installations.filter(i => i.site_id === siteId)
-    : [];
 
   // Cascade : dossiers filtrés selon site + installation
   // - site vide            → aucun dossier
@@ -286,27 +281,17 @@ function PdfModal({ onClose, sites, installations, dossiers, admins }: {
           <RattachementToggle value={avecRattachement} onChange={v => { setAvecRattachement(v); setSiteId(''); setInstallId(''); setDossierId(''); }} />
           {avecRattachement && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
-              {/* Étape 1 — Site (obligatoire pour débloquer la suite) */}
-              <div>
-                <Label>Site *</Label>
-                <select value={siteId} onChange={e => handleSiteChange(e.target.value)} style={{ ...inp, height: 36 }}>
-                  <option value="">— Sélectionner un site —</option>
-                  {sites.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}
-                </select>
-              </div>
-
-              {/* Étape 2 — Installation (optionnelle, débloquée après sélection du site) */}
-              <div style={{ opacity: !siteId ? 0.45 : 1 }}>
-                <Label>Installation (optionnel)</Label>
-                <select value={installId} onChange={e => handleInstallChange(e.target.value)}
-                  disabled={!siteId} style={{ ...inp, height: 36 }}>
-                  <option value="">— Aucune installation —</option>
-                  {filteredInstallations.map(i => <option key={i.id} value={i.id}>{i.nom}</option>)}
-                </select>
-                {siteId && filteredInstallations.length === 0 && (
-                  <p style={{ margin: '4px 0 0', fontSize: 11, color: C.muted }}>Aucune installation rattachée à ce site.</p>
-                )}
-              </div>
+              <SiteInstallSelect
+                siteId={siteId}
+                installId={installId}
+                onSiteChange={handleSiteChange}
+                onInstallChange={handleInstallChange}
+                sites={sites}
+                installations={installations}
+                siteLabel="Site *"
+                installLabel="Installation (optionnel)"
+                installPlaceholder="— Aucune installation —"
+              />
 
               {/* Étape 3 — Dossier (obligatoire, filtré selon site ± installation) */}
               <div style={{ opacity: dossierDisabled ? 0.45 : 1 }}>
@@ -353,10 +338,6 @@ function PlanModal({ onClose, sites, installations, admins }: {
   const [error,       setError]       = useState('');
   const [success,     setSuccess]     = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-
-  const filteredInstallations = siteId
-    ? installations.filter(i => i.site_id === siteId)
-    : [];
 
   function handleSiteChange(id: string) {
     setSiteId(id);
@@ -490,28 +471,17 @@ function PlanModal({ onClose, sites, installations, admins }: {
         <FormSection title="">
           <RattachementToggle value={avecRattachement} onChange={v => { setAvecRattachement(v); setSiteId(''); setInstallId(''); }} />
           {avecRattachement && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
-              <div>
-                <Label>Site *</Label>
-                <select value={siteId} onChange={e => handleSiteChange(e.target.value)} style={{ ...inp, height: 36 }}>
-                  <option value="">— Sélectionner un site —</option>
-                  {sites.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}
-                </select>
-              </div>
-              <div style={{ opacity: !siteId ? 0.45 : 1 }}>
-                <Label>Installation *</Label>
-                <select value={installId} onChange={e => setInstallId(e.target.value)}
-                  disabled={!siteId} style={{ ...inp, height: 36 }}>
-                  <option value="">
-                    {!siteId ? '— Sélectionnez d\'abord un site —' : filteredInstallations.length === 0 ? '— Aucune installation disponible —' : '— Sélectionner une installation —'}
-                  </option>
-                  {filteredInstallations.map(i => <option key={i.id} value={i.id}>{i.nom}</option>)}
-                </select>
-                {siteId && filteredInstallations.length === 0 && (
-                  <p style={{ margin: '4px 0 0', fontSize: 11, color: C.muted }}>Aucune installation rattachée à ce site.</p>
-                )}
-              </div>
-            </div>
+            <SiteInstallSelect
+              siteId={siteId}
+              installId={installId}
+              onSiteChange={handleSiteChange}
+              onInstallChange={setInstallId}
+              sites={sites}
+              installations={installations}
+              siteLabel="Site *"
+              installLabel="Installation *"
+              installPlaceholder="— Sélectionner une installation —"
+            />
           )}
         </FormSection>
 

@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import { ACCREDITATION_BOUNDS, clampAccred, pick, geoBody } from '../lib/pure';
+import { logger } from '../lib/logger';
 import multer from 'multer';
 import createDOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
@@ -47,7 +48,7 @@ function crud(
         if (error) throw error;
         res.json(data ?? []);
       } catch (err) {
-        console.error(`[db/${table} GET]`, err);
+        logger.error({ err: err, route: `[db/${table} GET]` }, 'Erreur');
         res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: `Erreur lecture ${table}.`, details: null } });
       }
     },
@@ -61,7 +62,7 @@ function crud(
         if (error) throw error;
         res.status(201).json(data);
       } catch (err) {
-        console.error(`[db/${table} POST]`, err);
+        logger.error({ err: err, route: `[db/${table} POST]` }, 'Erreur');
         res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur création.', details: null } });
       }
     },
@@ -75,7 +76,7 @@ function crud(
         if (error) throw error;
         res.json(data);
       } catch (err) {
-        console.error(`[db/${table} PATCH]`, err);
+        logger.error({ err: err, route: `[db/${table} PATCH]` }, 'Erreur');
         res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur mise à jour.', details: null } });
       }
     },
@@ -88,7 +89,7 @@ function crud(
         if (error) throw error;
         res.status(204).send();
       } catch (err) {
-        console.error(`[db/${table} DELETE]`, err);
+        logger.error({ err: err, route: `[db/${table} DELETE]` }, 'Erreur');
         res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur suppression.', details: null } });
       }
     },
@@ -142,7 +143,7 @@ router.get('/sites', authMiddleware, requireRole(allRoles),
       if (error) throw error;
 res.json((data ?? []).map(flattenSite));
     } catch (err) {
-      console.error('[db/sites GET]', err);
+      logger.error({ err: err, route: '[db/sites GET]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur lecture sites.', details: null } });
     }
   },
@@ -155,7 +156,7 @@ router.post('/sites', authMiddleware, requireRole(adminAll),
       if (error) throw error;
       res.status(201).json(flattenSite(data as Record<string, unknown>));
     } catch (err) {
-      console.error('[db/sites POST]', err);
+      logger.error({ err: err, route: '[db/sites POST]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur création site.', details: null } });
     }
   },
@@ -168,7 +169,7 @@ router.patch('/sites/:id', authMiddleware, requireRole(adminAll),
       if (error) throw error;
       res.json(flattenSite(data as Record<string, unknown>));
     } catch (err) {
-      console.error('[db/sites PATCH]', err);
+      logger.error({ err: err, route: '[db/sites PATCH]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur mise à jour site.', details: null } });
     }
   },
@@ -181,7 +182,7 @@ router.delete('/sites/:id', authMiddleware, requireRole(adminAll),
       if (error) throw error;
       res.status(204).send();
     } catch (err) {
-      console.error('[db/sites DELETE]', err);
+      logger.error({ err: err, route: '[db/sites DELETE]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur suppression site.', details: null } });
     }
   },
@@ -208,7 +209,7 @@ router.get('/installations', authMiddleware, requireRole(allRoles),
       if (error) throw error;
       res.json((data ?? []).map(flattenInstallation));
     } catch (err) {
-      console.error('[db/installations GET]', err);
+      logger.error({ err: err, route: '[db/installations GET]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur lecture installations.', details: null } });
     }
   },
@@ -221,7 +222,7 @@ router.post('/installations', authMiddleware, requireRole(adminAll),
       if (error) throw error;
       res.status(201).json(flattenInstallation(data as Record<string, unknown>));
     } catch (err) {
-      console.error('[db/installations POST]', err);
+      logger.error({ err: err, route: '[db/installations POST]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur création installation.', details: null } });
     }
   },
@@ -234,7 +235,7 @@ router.patch('/installations/:id', authMiddleware, requireRole(adminAll),
       if (error) throw error;
       res.json(flattenInstallation(data as Record<string, unknown>));
     } catch (err) {
-      console.error('[db/installations PATCH]', err);
+      logger.error({ err: err, route: '[db/installations PATCH]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur mise à jour installation.', details: null } });
     }
   },
@@ -247,7 +248,7 @@ router.delete('/installations/:id', authMiddleware, requireRole(adminAll),
       if (error) throw error;
       res.status(204).send();
     } catch (err) {
-      console.error('[db/installations DELETE]', err);
+      logger.error({ err: err, route: '[db/installations DELETE]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur suppression installation.', details: null } });
     }
   },
@@ -294,7 +295,7 @@ router.get('/plans', authMiddleware, requireRole(allRoles),
       if (error) throw error;
       res.json((data ?? []).map(flattenPlan));
     } catch (err) {
-      console.error('[db/plans GET]', err);
+      logger.error({ err: err, route: '[db/plans GET]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur lecture plans.', details: null } });
     }
   },
@@ -312,7 +313,7 @@ router.post('/plans', authMiddleware, requireRole(adminAll),
       if (error) throw error;
       res.status(201).json(flattenPlan(data as Record<string, unknown>));
     } catch (err) {
-      console.error('[db/plans POST]', err);
+      logger.error({ err: err, route: '[db/plans POST]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur création plan.', details: (err as { message?: string })?.message ?? String(err) } });
     }
   },
@@ -325,7 +326,7 @@ router.get('/plans/:id', authMiddleware, requireRole(allRoles),
       if (error) throw error;
       res.json(flattenPlan(data as Record<string, unknown>));
     } catch (err) {
-      console.error('[db/plans GET/:id]', err);
+      logger.error({ err: err, route: '[db/plans GET/:id]' }, 'Erreur');
       res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Plan introuvable.', details: null } });
     }
   },
@@ -339,7 +340,7 @@ router.patch('/plans/:id', authMiddleware, requireRole(adminAll),
       if (error) throw error;
       res.json(flattenPlan(data as Record<string, unknown>));
     } catch (err) {
-      console.error('[db/plans PATCH]', err);
+      logger.error({ err: err, route: '[db/plans PATCH]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur mise à jour plan.', details: null } });
     }
   },
@@ -352,7 +353,7 @@ router.delete('/plans/:id', authMiddleware, requireRole(adminAll),
       if (error) throw error;
       res.status(204).send();
     } catch (err) {
-      console.error('[db/plans DELETE]', err);
+      logger.error({ err: err, route: '[db/plans DELETE]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur suppression plan.', details: null } });
     }
   },
@@ -403,7 +404,7 @@ router.get('/calques', authMiddleware, requireRole(allRoles),
 
       res.json((data ?? []).map(flattenCalque));
     } catch (err) {
-      console.error('[db/calques GET]', err);
+      logger.error({ err: err, route: '[db/calques GET]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur lecture calques.', details: null } });
     }
   },
@@ -439,7 +440,7 @@ router.post('/calques', authMiddleware, requireRole(adminAll),
       if (error) throw error;
       res.status(201).json(flattenCalque(data as Record<string, unknown>));
     } catch (err) {
-      console.error('[db/calques POST]', err);
+      logger.error({ err: err, route: '[db/calques POST]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur création calque.', details: (err as { message?: string })?.message ?? String(err) } });
     }
   },
@@ -454,7 +455,7 @@ router.get('/calques/:id', authMiddleware, requireRole(allRoles),
       if (error) throw error;
       res.json(flattenCalque(data as Record<string, unknown>));
     } catch (err) {
-      console.error('[db/calques GET/:id]', err);
+      logger.error({ err: err, route: '[db/calques GET/:id]' }, 'Erreur');
       res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Calque introuvable.', details: null } });
     }
   },
@@ -477,7 +478,7 @@ router.patch('/calques/:id', authMiddleware, requireRole(adminAll),
       if (error) throw error;
       res.json(flattenCalque(data as Record<string, unknown>));
     } catch (err) {
-      console.error('[db/calques PATCH]', err);
+      logger.error({ err: err, route: '[db/calques PATCH]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur mise à jour calque.', details: (err as { message?: string })?.message ?? String(err) } });
     }
   },
@@ -490,7 +491,7 @@ router.delete('/calques/:id', authMiddleware, requireRole(adminAll),
       if (error) throw error;
       res.status(204).send();
     } catch (err) {
-      console.error('[db/calques DELETE]', err);
+      logger.error({ err: err, route: '[db/calques DELETE]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur suppression calque.', details: null } });
     }
   },
@@ -566,7 +567,7 @@ router.post('/upload/svg', authMiddleware, requireRole(adminAll),
       .from('Documents')
       .upload(storagePath, cleanBuffer, { contentType: 'image/svg+xml', upsert: true });
     if (uploadError) {
-      console.error('[upload/svg]', uploadError);
+      logger.error({ err: uploadError, route: '[upload/svg]' }, 'Erreur');
       res.status(500).json({ error: { code: 'STORAGE_ERROR', message: "Erreur lors de l'upload SVG." } });
       return;
     }
@@ -603,7 +604,7 @@ router.get('/dossiers', authMiddleware, requireRole(allRoles),
       if (error) throw error;
       res.json((data ?? []).map(flattenDossier));
     } catch (err) {
-      console.error('[db/dossiers GET]', err);
+      logger.error({ err: err, route: '[db/dossiers GET]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur lecture dossiers.', details: null } });
     }
   },
@@ -629,7 +630,7 @@ router.post('/dossiers', authMiddleware, requireRole(adminAll),
       if (error) throw error;
       res.status(201).json(flattenDossier(data as Record<string, unknown>));
     } catch (err) {
-      console.error('[db/dossiers POST]', err);
+      logger.error({ err: err, route: '[db/dossiers POST]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur création dossier.', details: null } });
     }
   },
@@ -646,7 +647,7 @@ router.patch('/dossiers/:id', authMiddleware, requireRole(adminAll),
       if (error) throw error;
       res.json(flattenDossier(data as Record<string, unknown>));
     } catch (err) {
-      console.error('[db/dossiers PATCH]', err);
+      logger.error({ err: err, route: '[db/dossiers PATCH]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur mise à jour dossier.', details: null } });
     }
   },
@@ -659,7 +660,7 @@ router.delete('/dossiers/:id', authMiddleware, requireRole(adminAll),
       if (error) throw error;
       res.status(204).send();
     } catch (err) {
-      console.error('[db/dossiers DELETE]', err);
+      logger.error({ err: err, route: '[db/dossiers DELETE]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur suppression dossier.', details: null } });
     }
   },
@@ -693,7 +694,7 @@ router.get('/fichiers_pdf', authMiddleware, requireRole(allRoles),
       if (error) throw error;
       res.json((data ?? []).map(flattenFichier));
     } catch (err) {
-      console.error('[db/fichiers_pdf GET]', err);
+      logger.error({ err: err, route: '[db/fichiers_pdf GET]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur lecture fichiers.', details: null } });
     }
   },
@@ -723,7 +724,7 @@ router.post('/fichiers_pdf', authMiddleware, requireRole(adminAll),
       if (error) throw error;
       res.status(201).json(flattenFichier(data as Record<string, unknown>));
     } catch (err) {
-      console.error('[db/fichiers_pdf POST]', err);
+      logger.error({ err: err, route: '[db/fichiers_pdf POST]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur création fichier.', details: null } });
     }
   },
@@ -738,7 +739,7 @@ router.get('/fichiers_pdf/:id', authMiddleware, requireRole(allRoles),
       if (error) throw error;
       res.json(flattenFichier(data as Record<string, unknown>));
     } catch (err) {
-      console.error('[db/fichiers_pdf GET/:id]', err);
+      logger.error({ err: err, route: '[db/fichiers_pdf GET/:id]' }, 'Erreur');
       res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Fichier introuvable.', details: null } });
     }
   },
@@ -760,7 +761,7 @@ router.patch('/fichiers_pdf/:id', authMiddleware, requireRole(adminAll),
       if (error) throw error;
       res.json(flattenFichier(data as Record<string, unknown>));
     } catch (err) {
-      console.error('[db/fichiers_pdf PATCH]', err);
+      logger.error({ err: err, route: '[db/fichiers_pdf PATCH]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur mise à jour fichier.', details: null } });
     }
   },
@@ -773,7 +774,7 @@ router.delete('/fichiers_pdf/:id', authMiddleware, requireRole(adminAll),
       if (error) throw error;
       res.status(204).send();
     } catch (err) {
-      console.error('[db/fichiers_pdf DELETE]', err);
+      logger.error({ err: err, route: '[db/fichiers_pdf DELETE]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur suppression fichier.', details: null } });
     }
   },
@@ -801,7 +802,7 @@ router.post('/upload/pdf', authMiddleware, requireRole(adminAll),
       .from('Documents')
       .upload(storagePath, req.file.buffer, { contentType: 'application/pdf', upsert: false });
     if (uploadError) {
-      console.error('[upload/pdf]', uploadError);
+      logger.error({ err: uploadError, route: '[upload/pdf]' }, 'Erreur');
       res.status(500).json({ error: { code: 'STORAGE_ERROR', message: 'Erreur lors de l\'upload PDF.' } });
       return;
     }
@@ -822,7 +823,7 @@ router.get('/user_profiles', authMiddleware, requireRole(adminApp),
       if (error) throw error;
       res.json(data ?? []);
     } catch (err) {
-      console.error('[db/user_profiles GET]', err);
+      logger.error({ err: err, route: '[db/user_profiles GET]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur lecture utilisateurs.', details: null } });
     }
   },
@@ -848,7 +849,7 @@ router.post('/user_profiles', authMiddleware, requireRole(adminApp),
       .select(USER_SELECT).single();
     if (profileError) {
       await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-      console.error('[db/user_profiles POST]', profileError);
+      logger.error({ err: profileError, route: '[db/user_profiles POST]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur création profil.', details: null } });
       return;
     }
@@ -875,7 +876,7 @@ router.patch('/user_profiles/:id', authMiddleware, requireRole(adminApp),
       }
       res.json(data);
     } catch (err) {
-      console.error('[db/user_profiles PATCH]', err);
+      logger.error({ err: err, route: '[db/user_profiles PATCH]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur mise à jour utilisateur.', details: null } });
     }
   },
@@ -885,7 +886,7 @@ router.delete('/user_profiles/:id', authMiddleware, requireRole(adminApp),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const { error } = await supabaseAdmin.auth.admin.deleteUser(req.params.id as string);
     if (error) {
-      console.error('[db/user_profiles DELETE]', error);
+      logger.error({ err: error, route: '[db/user_profiles DELETE]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur suppression utilisateur.', details: null } });
       return;
     }
@@ -906,7 +907,7 @@ router.get('/users', authMiddleware, requireRole(adminAll),
       if (error) throw error;
       res.json(data ?? []);
     } catch (err) {
-      console.error('[db/users GET]', err);
+      logger.error({ err: err, route: '[db/users GET]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur lecture utilisateurs.', details: null } });
     }
   },
@@ -926,7 +927,7 @@ router.get('/admins', authMiddleware, requireRole(allRoles),
       if (error) throw error;
       res.json(data ?? []);
     } catch (err) {
-      console.error('[db/admins GET]', err);
+      logger.error({ err: err, route: '[db/admins GET]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur lecture administrateurs.', details: null } });
     }
   },
@@ -947,7 +948,7 @@ router.get('/markers', authMiddleware, requireRole(adminAll),
       }));
       res.json(withUrls);
     } catch (err) {
-      console.error('[db/markers GET]', err);
+      logger.error({ err: err, route: '[db/markers GET]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur lecture markers.', details: null } });
     }
   },
@@ -967,7 +968,7 @@ router.post('/markers', authMiddleware, requireRole(adminAll),
       const row = data as Record<string, unknown>;
       res.status(201).json({ ...row, public_url: supabaseAdmin.storage.from('Documents').getPublicUrl(row.storage_path as string).data.publicUrl });
     } catch (err) {
-      console.error('[db/markers POST]', err);
+      logger.error({ err: err, route: '[db/markers POST]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur création marker.', details: null } });
     }
   },
@@ -1000,7 +1001,7 @@ router.patch('/markers/:id', authMiddleware, requireRole(adminAll),
       const row = data as Record<string, unknown>;
       res.json({ ...row, public_url: supabaseAdmin.storage.from('Documents').getPublicUrl(row.storage_path as string).data.publicUrl });
     } catch (err) {
-      console.error('[db/markers PATCH]', err);
+      logger.error({ err: err, route: '[db/markers PATCH]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur mise à jour marker.', details: null } });
     }
   },
@@ -1024,7 +1025,7 @@ router.delete('/markers/:id', authMiddleware, requireRole(adminAll),
 
       res.status(204).send();
     } catch (err) {
-      console.error('[db/markers DELETE]', err);
+      logger.error({ err: err, route: '[db/markers DELETE]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur suppression marker.', details: null } });
     }
   },
@@ -1067,7 +1068,7 @@ router.post('/upload/marker', authMiddleware, requireRole(adminAll),
     const { error: uploadError } = await supabaseAdmin.storage
       .from('Documents').upload(storagePath, cleanBuffer, { contentType: 'image/svg+xml', upsert: false });
     if (uploadError) {
-      console.error('[upload/marker]', uploadError);
+      logger.error({ err: uploadError, route: '[upload/marker]' }, 'Erreur');
       res.status(500).json({ error: { code: 'STORAGE_ERROR', message: "Erreur lors de l'upload du marker." } });
       return;
     }
@@ -1109,7 +1110,7 @@ router.get('/pour_validation', authMiddleware, requireRole(adminAll),
       if (error) throw error;
       res.json((data ?? []).map(flattenPV));
     } catch (err) {
-      console.error('[db/pour_validation GET]', err);
+      logger.error({ err: err, route: '[db/pour_validation GET]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur lecture demandes.', details: null } });
     }
   },
@@ -1144,7 +1145,7 @@ router.post('/pour_validation', authMiddleware, requireRole(allRoles),
       if (error) throw error;
       res.status(201).json(flattenPV(data as Record<string, unknown>));
     } catch (err) {
-      console.error('[db/pour_validation POST]', err);
+      logger.error({ err: err, route: '[db/pour_validation POST]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur soumission demande.', details: null } });
     }
   },
@@ -1181,7 +1182,7 @@ router.patch('/pour_validation/:id', authMiddleware, requireRole(adminAll),
       if (error) throw error;
       res.json(flattenPV(data as Record<string, unknown>));
     } catch (err) {
-      console.error('[db/pour_validation PATCH]', err);
+      logger.error({ err: err, route: '[db/pour_validation PATCH]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur mise à jour demande.', details: null } });
     }
   },
@@ -1205,7 +1206,7 @@ router.post('/upload/pdf_temp', authMiddleware, requireRole(allRoles),
       .from('Documents')
       .upload(storagePath, req.file.buffer, { contentType: 'application/pdf', upsert: false });
     if (uploadError) {
-      console.error('[upload/pdf_temp]', uploadError);
+      logger.error({ err: uploadError, route: '[upload/pdf_temp]' }, 'Erreur');
       res.status(500).json({ error: { code: 'STORAGE_ERROR', message: "Erreur lors de l'upload du fichier." } });
       return;
     }
@@ -1232,7 +1233,7 @@ router.post('/upload/svg_temp', authMiddleware, requireRole(allRoles),
       .from('Documents')
       .upload(storagePath, cleanBuffer, { contentType: 'image/svg+xml', upsert: false });
     if (uploadError) {
-      console.error('[upload/svg_temp]', uploadError);
+      logger.error({ err: uploadError, route: '[upload/svg_temp]' }, 'Erreur');
       res.status(500).json({ error: { code: 'STORAGE_ERROR', message: "Erreur lors de l'upload du fichier." } });
       return;
     }
@@ -1268,7 +1269,7 @@ router.post('/upload/avatar', authMiddleware, requireRole(adminApp),
       .from('Documents')
       .upload(`avatar/${filename}`, req.file.buffer, { contentType: 'image/png', upsert: false });
     if (uploadError) {
-      console.error('[upload/avatar]', uploadError);
+      logger.error({ err: uploadError, route: '[upload/avatar]' }, 'Erreur');
       res.status(500).json({ error: { code: 'STORAGE_ERROR', message: 'Erreur lors de l\'upload de l\'avatar.' } });
       return;
     }
@@ -1293,7 +1294,7 @@ router.get('/points', authMiddleware, requireRole(allRoles),
       if (error) throw error;
       res.json(data ?? []);
     } catch (err) {
-      console.error('[db/points GET]', err);
+      logger.error({ err: err, route: '[db/points GET]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur lecture points.', details: null } });
     }
   },
@@ -1306,7 +1307,7 @@ router.post('/points', authMiddleware, requireRole(adminAll),
       if (error) throw error;
       res.status(201).json(data);
     } catch (err) {
-      console.error('[db/points POST]', err);
+      logger.error({ err: err, route: '[db/points POST]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur création point.', details: null } });
     }
   },
@@ -1319,7 +1320,7 @@ router.patch('/points/:id', authMiddleware, requireRole(adminAll),
       if (error) throw error;
       res.json(data);
     } catch (err) {
-      console.error('[db/points PATCH]', err);
+      logger.error({ err: err, route: '[db/points PATCH]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur mise à jour point.', details: null } });
     }
   },
@@ -1359,7 +1360,7 @@ router.delete('/points/:id', authMiddleware, requireRole([ROLES.ADMIN_APP, ROLES
       if (error) throw error;
       res.status(204).send();
     } catch (err) {
-      console.error('[db/points DELETE]', err);
+      logger.error({ err: err, route: '[db/points DELETE]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur suppression point.', details: null } });
     }
   },
@@ -1408,7 +1409,7 @@ router.post('/upload/photo', authMiddleware, requireRole(adminAll),
       .from('Documents')
       .upload(storagePath, req.file.buffer, { contentType: detectedMime, upsert: false });
     if (uploadError) {
-      console.error('[upload/photo]', uploadError);
+      logger.error({ err: uploadError, route: '[upload/photo]' }, 'Erreur');
       res.status(500).json({ error: { code: 'STORAGE_ERROR', message: "Erreur upload image." } });
       return;
     }
@@ -1427,7 +1428,7 @@ router.post('/upload/photo', authMiddleware, requireRole(adminAll),
       .select(PHOTO_SELECT)
       .single();
     if (error) {
-      console.error('[upload/photo DB]', error);
+      logger.error({ err: error, route: '[upload/photo DB]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur création photo.' } });
       return;
     }
@@ -1455,7 +1456,7 @@ router.get('/photos', authMiddleware, requireRole(allRoles),
       }));
       res.json(rows);
     } catch (err) {
-      console.error('[db/photos GET]', err);
+      logger.error({ err: err, route: '[db/photos GET]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur lecture photos.', details: null } });
     }
   },
@@ -1482,7 +1483,7 @@ router.post('/upload/fichier_point', authMiddleware, requireRole(adminAll),
       .from('Documents')
       .upload(storagePath, req.file.buffer, { contentType: 'application/pdf', upsert: false });
     if (uploadError) {
-      console.error('[upload/fichier_point]', uploadError);
+      logger.error({ err: uploadError, route: '[upload/fichier_point]' }, 'Erreur');
       res.status(500).json({ error: { code: 'STORAGE_ERROR', message: 'Erreur upload PDF.' } });
       return;
     }
@@ -1501,7 +1502,7 @@ router.post('/upload/fichier_point', authMiddleware, requireRole(adminAll),
       .select(PHOTO_SELECT)
       .single();
     if (error) {
-      console.error('[upload/fichier_point DB]', error);
+      logger.error({ err: error, route: '[upload/fichier_point DB]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur création fichier.' } });
       return;
     }
@@ -1527,7 +1528,7 @@ router.patch('/photos/:id', authMiddleware, requireRole(adminAll),
           : null,
       });
     } catch (err) {
-      console.error('[db/photos PATCH]', err);
+      logger.error({ err: err, route: '[db/photos PATCH]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur mise à jour photo.', details: null } });
     }
   },
@@ -1544,7 +1545,7 @@ router.delete('/photos/:id', authMiddleware, requireRole(adminAll),
       if (storagePath) await supabaseAdmin.storage.from('Documents').remove([storagePath]);
       res.status(204).send();
     } catch (err) {
-      console.error('[db/photos DELETE]', err);
+      logger.error({ err: err, route: '[db/photos DELETE]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur suppression photo.', details: null } });
     }
   },

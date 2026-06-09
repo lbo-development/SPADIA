@@ -9,7 +9,7 @@ import { TraiterCalqueModal } from './valider/TraiterCalqueModal';
 import { TraiterPlanModal } from './valider/TraiterPlanModal';
 import { VoirEntityModal } from './valider/VoirEntityModal';
 import { TYPE_META, Pill, RattachBadge, EntityIcon, payloadNom } from './valider/shared';
-import { type Statut } from '@/types';
+import { STATUTS, type Statut } from '@/types';
 
 // ── Types page ────────────────────────────────────────────────────────────────
 
@@ -208,6 +208,13 @@ function PvRow({ pv, odd, readOnly, onTraiter }: { pv: PourValidation; odd: bool
 
 // ── Page principale ───────────────────────────────────────────────────────────
 
+const EMPTY_MSG = {
+  'En attente':  'Aucune demande en attente de validation.',
+  'A compléter': 'Aucune demande à compléter.',
+  'Validé':      'Aucune demande validée.',
+  'Rejeté':      'Aucune demande rejetée.',
+} satisfies Record<Statut, string>;
+
 export default function ValiderDemandesPage() {
   const { user } = useAuth();
   const [items,    setItems]    = useState<PourValidation[]>([]);
@@ -243,13 +250,13 @@ export default function ValiderDemandesPage() {
     setItems(prev => prev.map(pv => pv.id === updated.id ? updated : pv));
   }
 
-  const pending    = items.filter(pv => pv.statut === 'En attente');
-  const toComplete = items.filter(pv => pv.statut === 'A compléter');
-  const validated  = items.filter(pv => pv.statut === 'Validé');
-  const rejected   = items.filter(pv => pv.statut === 'Rejeté');
-
-  const base      = { 'En attente': pending, 'A compléter': toComplete, 'Validé': validated, 'Rejeté': rejected }[tab];
-  const displayed = sort ? sortPV(base, sort.col, sort.dir) : base;
+  const byTab = {
+    'En attente':  items.filter(pv => pv.statut === 'En attente'),
+    'A compléter': items.filter(pv => pv.statut === 'A compléter'),
+    'Validé':      items.filter(pv => pv.statut === 'Validé'),
+    'Rejeté':      items.filter(pv => pv.statut === 'Rejeté'),
+  } satisfies Record<Statut, PourValidation[]>;
+  const displayed = sort ? sortPV(byTab[tab], sort.col, sort.dir) : byTab[tab];
 
   const th: React.CSSProperties = {
     padding: '10px 14px', background: '#1C2333', color: C.muted, fontWeight: 600,
@@ -273,10 +280,9 @@ export default function ValiderDemandesPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <TabBtn value="En attente"  count={pending.length}    active={tab === 'En attente'}  onClick={() => setTab('En attente')} />
-          <TabBtn value="A compléter" count={toComplete.length} active={tab === 'A compléter'} onClick={() => setTab('A compléter')} />
-          <TabBtn value="Validé"      count={validated.length}  active={tab === 'Validé'}      onClick={() => setTab('Validé')} />
-          <TabBtn value="Rejeté"      count={rejected.length}   active={tab === 'Rejeté'}      onClick={() => setTab('Rejeté')} />
+          {STATUTS.map(s => (
+            <TabBtn key={s} value={s} count={byTab[s].length} active={tab === s} onClick={() => setTab(s)} />
+          ))}
         </div>
       </div>
 
@@ -301,12 +307,7 @@ export default function ValiderDemandesPage() {
               </thead>
               <tbody>
                 {displayed.length === 0
-                  ? <EmptyRow message={{
-                      'En attente':  'Aucune demande en attente de validation.',
-                      'A compléter': 'Aucune demande à compléter.',
-                      'Validé':      'Aucune demande validée.',
-                      'Rejeté':      'Aucune demande rejetée.',
-                    }[tab]} />
+                  ? <EmptyRow message={EMPTY_MSG[tab]} />
                   : displayed.map((pv, i) => (
                     <PvRow
                       key={pv.id}
