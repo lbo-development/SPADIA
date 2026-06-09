@@ -1,4 +1,5 @@
 import { Router, Response } from 'express';
+import { ACCREDITATION_BOUNDS, clampAccred, pick, geoBody } from '../lib/pure';
 import multer from 'multer';
 import createDOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
@@ -24,13 +25,6 @@ function isPrivilegedRole(role: string) {
   return role === ROLES.ADMIN_APP || role === ROLES.ADMIN_DATA || role === ROLES.VIEWER;
 }
 
-function pick(body: unknown, keys: string[]): Record<string, unknown> {
-  if (!body || typeof body !== 'object') return {};
-  const src = body as Record<string, unknown>;
-  const out: Record<string, unknown> = {};
-  for (const k of keys) { if (k in src) out[k] = src[k]; }
-  return out;
-}
 
 const WRITE_FIELDS: Record<string, string[]> = {
   points_create: ['calque_id', 'nom', 'coord_x_ou_lon', 'coord_y_ou_lat', 'champs'],
@@ -140,16 +134,6 @@ function flattenSite(row: Record<string, unknown>): Record<string, unknown> {
   return { ...rest, ...parseGeoPoint(geo_point) };
 }
 
-function geoBody(raw: Record<string, unknown>): Record<string, unknown> {
-  const { lat, lng, ...rest } = raw;
-  const body: Record<string, unknown> = { ...rest };
-  if ('lat' in raw || 'lng' in raw) {
-    const latN = lat !== '' && lat != null ? parseFloat(String(lat)) : NaN;
-    const lngN = lng !== '' && lng != null ? parseFloat(String(lng)) : NaN;
-    body.geo_point = !isNaN(latN) && !isNaN(lngN) ? `POINT(${lngN} ${latN})` : null;
-  }
-  return body;
-}
 
 router.get('/sites', authMiddleware, requireRole(allRoles),
   async (_req: AuthenticatedRequest, res: Response): Promise<void> => {
@@ -1258,13 +1242,7 @@ router.post('/upload/svg_temp', authMiddleware, requireRole(allRoles),
 
 // ── Config (bornes métier exposées au frontend) ──────────────────────────────
 
-export const ACCREDITATION_BOUNDS = { min: 0, max: 3 } as const;
-
-function clampAccred(value: unknown): number {
-  const n = parseInt(String(value ?? 0), 10);
-  if (isNaN(n)) return ACCREDITATION_BOUNDS.min;
-  return Math.min(ACCREDITATION_BOUNDS.max, Math.max(ACCREDITATION_BOUNDS.min, n));
-}
+export { ACCREDITATION_BOUNDS } from '../lib/pure';
 
 router.get('/config', authMiddleware,
   async (_req: AuthenticatedRequest, res: Response): Promise<void> => {
