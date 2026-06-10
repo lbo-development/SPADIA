@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { supabase } from '../supabase/client';
 import { authMiddleware, AuthenticatedRequest } from '../middlewares/auth';
 import { requireRole, ROLES } from '../middlewares/roles';
+import { logger } from '../lib/logger';
 
 const router = Router();
 const allRoles = [ROLES.ADMIN_APP, ROLES.ADMIN_DATA, ROLES.USER, ROLES.VIEWER];
@@ -18,7 +19,7 @@ router.get('/', authMiddleware, requireRole(allRoles),
       if (error) throw error;
       res.json(data ?? []);
     } catch (err) {
-      console.error('[favoris GET]', err);
+      logger.error({ err: err, route: '[favoris GET]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur lecture favoris.', details: null } });
     }
   },
@@ -41,7 +42,7 @@ router.post('/', authMiddleware, requireRole(allRoles),
       if (error) throw error;
       res.status(201).json(data);
     } catch (err) {
-      console.error('[favoris POST]', err);
+      logger.error({ err: err, route: '[favoris POST]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur création favori.', details: null } });
     }
   },
@@ -67,7 +68,7 @@ router.patch('/:id', authMiddleware, requireRole(allRoles),
       if (!data) { res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Favori introuvable.', details: null } }); return; }
       res.json(data);
     } catch (err) {
-      console.error('[favoris PATCH]', err);
+      logger.error({ err: err, route: '[favoris PATCH]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur mise à jour favori.', details: null } });
     }
   },
@@ -85,7 +86,7 @@ router.delete('/:id', authMiddleware, requireRole(allRoles),
       if (error) throw error;
       res.status(204).send();
     } catch (err) {
-      console.error('[favoris DELETE]', err);
+      logger.error({ err: err, route: '[favoris DELETE]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur suppression favori.', details: null } });
     }
   },

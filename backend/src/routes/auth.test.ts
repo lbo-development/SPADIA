@@ -4,6 +4,14 @@ import express, { Express } from 'express';
 // Doit être déclaré avant tout import des routes pour que Jest hisse le mock
 jest.mock('uuid', () => ({ v4: () => 'test-session-token' }));
 
+jest.mock('../lib/logger', () => ({
+  logger: {
+    error: jest.fn(),
+    warn:  jest.fn(),
+    info:  jest.fn(),
+  },
+}));
+
 jest.mock('../supabase/client', () => ({
   supabase: {
     auth: {
@@ -17,15 +25,17 @@ jest.mock('../supabase/client', () => ({
 }));
 
 import { supabase } from '../supabase/client';
+import { logger } from '../lib/logger';
 import authRouter from './auth';
 
 // ── Raccourcis typés ──────────────────────────────────────────────────────────
 
-const mockSignIn  = supabase.auth.signInWithPassword as jest.Mock;
-const mockRefresh = supabase.auth.refreshSession    as jest.Mock;
-const mockGetUser = supabase.auth.getUser           as jest.Mock;
-const mockSignOut = supabase.auth.signOut           as jest.Mock;
-const mockFrom    = supabase.from                   as jest.Mock;
+const mockSignIn      = supabase.auth.signInWithPassword as jest.Mock;
+const mockRefresh     = supabase.auth.refreshSession    as jest.Mock;
+const mockGetUser     = supabase.auth.getUser           as jest.Mock;
+const mockSignOut     = supabase.auth.signOut           as jest.Mock;
+const mockFrom        = supabase.from                   as jest.Mock;
+const mockLoggerError = logger.error                    as jest.Mock;
 
 // ── Helpers de chaîne Supabase ────────────────────────────────────────────────
 

@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { supabase } from '../supabase/client';
 import { authMiddleware, AuthenticatedRequest } from '../middlewares/auth';
 import { ROLES } from '../middlewares/roles';
+import { logger } from '../lib/logger';
 
 // ── Sélecteurs et helpers pour /data ────────────────────────────────────────
 
@@ -122,7 +123,7 @@ router.get('/stats', authMiddleware, async (req: AuthenticatedRequest, res: Resp
       calques_owned:         calquesOwned         ?? 0,
     });
   } catch (err) {
-    console.error('[dashboard/stats]', err);
+    logger.error({ err: err, route: '[dashboard/stats]' }, 'Erreur');
     res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur statistiques.', details: null } });
   }
 });
@@ -177,7 +178,7 @@ router.get('/data', authMiddleware, async (req: AuthenticatedRequest, res: Respo
 
     res.json({ favoris: favoris ?? [], soumis, aValider, mesDemandes, mesCalques });
   } catch (err) {
-    console.error('[dashboard/data]', err);
+    logger.error({ err: err, route: '[dashboard/data]' }, 'Erreur');
     res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur tableau de bord.', details: null } });
   }
 });

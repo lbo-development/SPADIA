@@ -6,26 +6,6 @@ import { C } from '@/constants/colors';
 import { inputStyle as inp, btnStyle as btn, Label, FormSection, Spinner } from '@/components/ui';
 import { SiteInstallSelect, type RefOption } from '@/components/SiteInstallSelect';
 
-// ── NumSpinner ────────────────────────────────────────────────────────────────
-
-function NumSpinner({ value, onChange, min, max }: { value: number; onChange: (n: number) => void; min: number; max: number }) {
-  const s: React.CSSProperties = {
-    width: 32, height: 36, background: 'transparent', border: 'none', fontSize: 18, fontWeight: 300,
-    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-  };
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', height: 36, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 7, overflow: 'hidden' }}>
-      <button type="button" disabled={value <= min} onClick={() => onChange(Math.max(min, value - 1))}
-        style={{ ...s, color: value <= min ? C.border : C.accent, cursor: value <= min ? 'not-allowed' : 'pointer' }}>−</button>
-      <div style={{ width: 1, height: 16, background: C.border, flexShrink: 0 }} />
-      <span style={{ flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 600, color: C.text }}>{value}</span>
-      <div style={{ width: 1, height: 16, background: C.border, flexShrink: 0 }} />
-      <button type="button" disabled={value >= max} onClick={() => onChange(Math.min(max, value + 1))}
-        style={{ ...s, color: value >= max ? C.border : C.accent, cursor: value >= max ? 'not-allowed' : 'pointer' }}>+</button>
-    </div>
-  );
-}
-
 // ── Icônes ────────────────────────────────────────────────────────────────────
 
 function IconPdf({ size = 40, color = C.accent }: { size?: number; color?: string }) {

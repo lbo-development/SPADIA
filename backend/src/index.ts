@@ -7,6 +7,7 @@ import authRouter from './routes/auth';
 import dashboardRouter from './routes/dashboard';
 import databaseRouter from './routes/database';
 import favorisRouter from './routes/favoris';
+import { logger } from './lib/logger';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -57,7 +58,7 @@ if (isProd) {
 }
 
 app.listen(PORT, () => {
-  console.log(`✅ SPADIA backend démarré sur http://localhost:${PORT}`);
+  logger.info(`SPADIA backend démarré sur http://localhost:${PORT}`);
 });
 
 export default app;
