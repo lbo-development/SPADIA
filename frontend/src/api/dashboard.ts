@@ -1,5 +1,6 @@
 import { apiClient } from './client';
 import type { Statut } from '@/types';
+import type { MapStateFavori } from '@/api/database';
 
 export interface DashboardStats {
   sites_total:          number;
@@ -18,6 +19,7 @@ export interface DashboardFavori {
   node_id:    string;
   node_type:  string;
   expanded:   string[];
+  map_state:  MapStateFavori | null;
   created_at: string;
 }
 

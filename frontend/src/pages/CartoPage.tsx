@@ -237,7 +237,10 @@ export default function CartoPage() {
   const [viewportHeight,  setViewportHeight]  = useState(() => `${window.innerHeight}px`);
 
   const location = useLocation();
-  const pendingMapStateRef = useRef<MapStateFavori | null>(null);
+  const pendingMapStateRef    = useRef<MapStateFavori | null>(null);
+  const pendingNavMapRef      = useRef<MapStateFavori | null>(
+    (location.state as { map_state?: MapStateFavori } | null)?.map_state ?? null
+  );
 
   const [zoom,        setZoom]        = useState(6);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -513,6 +516,19 @@ export default function CartoPage() {
     }
   }
 
+
+  // ── Applique le map_state transmis par la navigation depuis le dashboard ────
+  useEffect(() => {
+    if (loading || tree.length === 0 || !pendingNavMapRef.current) return;
+    const ms = pendingNavMapRef.current;
+    pendingNavMapRef.current = null;
+    pendingMapStateRef.current = ms;
+    setFavoriApplying(true);
+    const targetNode = findNode(tree, ms.load_id);
+    if (targetNode) handleNodeDoubleClick(targetNode);
+    else setFavoriApplying(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, tree]);
 
   // ── Sync refs (évite les closures périmées dans les handlers Leaflet) ──────
   useEffect(() => {

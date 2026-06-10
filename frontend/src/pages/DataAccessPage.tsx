@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { dashboardApi, type DashboardData, type DashboardPV, type DashboardCalque, type DashboardFavori } from '@/api/dashboard';
+import type { MapStateFavori } from '@/api/database';
 import { C } from '@/constants/colors';
 import { Spinner } from '@/components/ui';
 import { fmtDate } from '@/lib/date';
@@ -206,7 +207,7 @@ function ListBoxShell({
   );
 }
 
-function FavoriListBox({ favoris, onNavigate }: { favoris: DashboardFavori[]; onNavigate: (nodeId: string, expanded: string[]) => void }) {
+function FavoriListBox({ favoris, onNavigate }: { favoris: DashboardFavori[]; onNavigate: (nodeId: string, expanded: string[], mapState?: MapStateFavori | null) => void }) {
   const [hovered, setHovered] = useState<string | null>(null);
   return (
     <ListBoxShell title="Mes favoris" count={favoris.length} maxHeight={200}>
@@ -217,8 +218,8 @@ function FavoriListBox({ favoris, onNavigate }: { favoris: DashboardFavori[]; on
             key={f.id}
             role="button"
             tabIndex={0}
-            onClick={() => onNavigate(f.node_id, f.expanded)}
-            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') onNavigate(f.node_id, f.expanded); }}
+            onClick={() => onNavigate(f.node_id, f.expanded, f.map_state)}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') onNavigate(f.node_id, f.expanded, f.map_state); }}
             onMouseEnter={() => setHovered(f.id)}
             onMouseLeave={() => setHovered(null)}
             title="Ouvrir dans la carte"
@@ -310,8 +311,8 @@ export default function DataAccessPage() {
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState(false);
 
-  function goToCarte(nodeId: string, expanded: string[]) {
-    navigate('/carte', { state: { nodeId, expanded } });
+  function goToCarte(nodeId: string, expanded: string[], mapState?: MapStateFavori | null) {
+    navigate('/carte', { state: { nodeId, expanded, map_state: mapState ?? null } });
   }
 
   useEffect(() => {
