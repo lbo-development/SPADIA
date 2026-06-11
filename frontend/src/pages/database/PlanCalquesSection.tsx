@@ -271,9 +271,9 @@ function CalqueModal({ initial, planId, planNom, onSave, onClose }: {
       title={initial?.id ? `Modifier — ${initial.nom ?? ''}` : `Nouveau calque — ${planNom}`}
       onClose={onClose} maxWidth={560} error={err}
       footer={
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button type="button" style={btn(C.muted, true)} onClick={onClose}>Annuler</button>
-          <button type="button" disabled={saving} style={btn(C.accent)} onClick={submit as unknown as React.MouseEventHandler}>{saving ? 'Enregistrement…' : 'Enregistrer'}</button>
+        <div className="modal-footer">
+          <button type="button" className="modal-btn modal-btn-cancel" onClick={onClose}>Annuler</button>
+          <button type="button" className="modal-btn modal-btn-save" disabled={saving} onClick={submit as unknown as React.MouseEventHandler}>{saving ? <><SpinnerIcon /> Enregistrement…</> : 'Enregistrer'}</button>
         </div>
       }
     >
@@ -411,7 +411,9 @@ export function PlanRow({ plan, canWrite, onEdit, onDelete, onUploadSvg }: {
   const [svgDragOver,   setSvgDragOver]   = useState(false);
   const [uploading,     setUploading]     = useState(false);
   const [editCalque,    setEditCalque]    = useState<Calque | null>(null);
-  const [deleteCalque,  setDeleteCalque]  = useState<Calque | null>(null);
+  const [deleteCalque,       setDeleteCalque]       = useState<Calque | null>(null);
+  const [deleteCalqueStats,  setDeleteCalqueStats]  = useState<{ pointCount: number } | null>(null);
+  const [deleteCalqueStatsL, setDeleteCalqueStatsL] = useState(false);
   const [addCalque,     setAddCalque]     = useState(false);
 
   const [calqueReorderModal, setCalqueReorderModal] = useState(false);
@@ -456,10 +458,25 @@ export function PlanRow({ plan, canWrite, onEdit, onDelete, onUploadSvg }: {
     await loadCalques();
   }
 
+  async function requestDeleteCalque(calque: Calque) {
+    setDeleteCalque(calque);
+    setDeleteCalqueStats(null);
+    setDeleteCalqueStatsL(true);
+    try {
+      const { data } = await db.listPoints(calque.id);
+      setDeleteCalqueStats({ pointCount: (data ?? []).length });
+    } catch {
+      setDeleteCalqueStats({ pointCount: 0 });
+    } finally {
+      setDeleteCalqueStatsL(false);
+    }
+  }
+
   async function confirmDeleteCalque() {
     if (!deleteCalque) return;
     await db.removeCalque(deleteCalque.id);
     setDeleteCalque(null);
+    setDeleteCalqueStats(null);
     await loadCalques();
   }
 
@@ -565,7 +582,7 @@ export function PlanRow({ plan, canWrite, onEdit, onDelete, onUploadSvg }: {
                   {canWrite && (
                     <>
                       <button title="Modifier" onClick={() => setEditCalque(c)} style={iconBtn(C.muted)}><PencilIcon /></button>
-                      <button title="Supprimer" onClick={() => setDeleteCalque(c)} style={iconBtn(C.danger)}><TrashIcon /></button>
+                      <button title="Supprimer" onClick={() => requestDeleteCalque(c)} style={iconBtn(C.danger)}><TrashIcon /></button>
                     </>
                   )}
                 </div>
@@ -582,15 +599,23 @@ export function PlanRow({ plan, canWrite, onEdit, onDelete, onUploadSvg }: {
         <CalqueModal initial={editCalque} planId={plan.id} planNom={plan.nom} onSave={data => saveCalque(data, true, editCalque)} onClose={() => setEditCalque(null)} />
       )}
       {deleteCalque && (
-        <Modal title="Confirmation" onClose={() => setDeleteCalque(null)}
+        <Modal title="Confirmation" onClose={() => { setDeleteCalque(null); setDeleteCalqueStats(null); }}
           footer={
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button style={btn(C.muted, true)} onClick={() => setDeleteCalque(null)}>Annuler</button>
-              <button style={btn(C.danger)} onClick={confirmDeleteCalque}>Supprimer</button>
+              <button style={btn(C.muted, true)} onClick={() => { setDeleteCalque(null); setDeleteCalqueStats(null); }}>Annuler</button>
+              <button style={btn(C.danger)} onClick={confirmDeleteCalque} disabled={deleteCalqueStatsL}>Supprimer</button>
             </div>
           }
         >
-          <p style={{ margin: 0, fontSize: 14, color: C.text }}>{`Supprimer le calque « ${deleteCalque.nom} » ?`}</p>
+          {deleteCalqueStatsL ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: C.muted }}><SpinnerIcon /> Chargement…</div>
+          ) : deleteCalqueStats && deleteCalqueStats.pointCount > 0 ? (
+            <p style={{ margin: 0, fontSize: 14, color: C.text }}>
+              {`Supprimer le calque « ${deleteCalque.nom} » et ses ${deleteCalqueStats.pointCount} point${deleteCalqueStats.pointCount > 1 ? 's' : ''} ?`}
+            </p>
+          ) : (
+            <p style={{ margin: 0, fontSize: 14, color: C.text }}>{`Supprimer le calque « ${deleteCalque.nom} » ?`}</p>
+          )}
         </Modal>
       )}
 

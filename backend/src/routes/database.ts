@@ -1551,4 +1551,189 @@ router.delete('/photos/:id', authMiddleware, requireRole(adminAll),
   },
 );
 
+// ── Fichiers calques ──────────────────────────────────────────────────────────
+
+const uploadFichierCalque = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 },
+});
+
+const FICHIER_CALQUE_SELECT = 'id, calque_id, nom, "order", description, niveau_accreditation, storage_path, is_downloadable, created_at, updated_at';
+
+async function isCalqueOwnerOrAdmin(userId: string, calqueId: string): Promise<boolean> {
+  const { data: up } = await supabase
+    .from('user_profiles').select('role').eq('id', userId).single();
+  if (!up) return false;
+  if ((up as { role: string }).role === ROLES.ADMIN_APP || (up as { role: string }).role === ROLES.ADMIN_DATA) return true;
+  const { data: calque } = await supabase
+    .from('calques').select('owner_id').eq('id', calqueId).single();
+  return (calque as { owner_id: string } | null)?.owner_id === userId;
+}
+
+// Lecture : tous les users avec accréd. suffisante ; can_download calculé
+router.get('/fichiers_calques', authMiddleware, requireRole(allRoles),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const { calque_id } = req.query as { calque_id?: string };
+      if (!calque_id) {
+        res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'calque_id requis.' } });
+        return;
+      }
+      const { data: up } = await supabase
+        .from('user_profiles').select('role').eq('id', req.user!.id).single();
+      const isPriv     = isPrivilegedRole((up as { role: string } | null)?.role ?? '');
+      const isOwnerAdmin = await isCalqueOwnerOrAdmin(req.user!.id, calque_id);
+      const { data, error } = await supabase
+        .from('fichiers_calques')
+        .select(FICHIER_CALQUE_SELECT)
+        .eq('calque_id', calque_id)
+        .order('order', { ascending: true });
+      if (error) throw error;
+      const rows = (data ?? []).map((f: Record<string, unknown>) => {
+        const sp = f.storage_path as string | null | undefined;
+        return {
+          ...f,
+          storage_public_url: sp
+            ? supabaseAdmin.storage.from('Documents').getPublicUrl(sp).data.publicUrl
+            : null,
+          can_download: isOwnerAdmin || isPriv || f.is_downloadable === true,
+        };
+      });
+      res.json(rows);
+    } catch (err) {
+      logger.error({ err, route: '[db/fichiers_calques GET]' }, 'Erreur');
+      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur lecture fichiers calque.' } });
+    }
+  },
+);
+
+// Création métadonnées (sans fichier) — owner/admin
+router.post('/fichiers_calques', authMiddleware, requireRole(allRoles),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const { calque_id, nom, order, description, niveau_accreditation, storage_path, is_downloadable } = req.body as Record<string, unknown>;
+      if (!calque_id || !nom || !storage_path) {
+        res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'calque_id, nom et storage_path requis.' } });
+        return;
+      }
+      if (!await isCalqueOwnerOrAdmin(req.user!.id, calque_id as string)) {
+        res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Droits insuffisants.' } });
+        return;
+      }
+      const { data, error } = await supabase
+        .from('fichiers_calques')
+        .insert({
+          calque_id,
+          nom,
+          order:               order ?? 0,
+          description:         description ?? null,
+          niveau_accreditation: clampAccred(Number(niveau_accreditation ?? 0)),
+          storage_path,
+          is_downloadable:     is_downloadable ?? false,
+        })
+        .select(FICHIER_CALQUE_SELECT)
+        .single();
+      if (error) throw error;
+      res.status(201).json(data);
+    } catch (err) {
+      logger.error({ err, route: '[db/fichiers_calques POST]' }, 'Erreur');
+      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur création fichier calque.' } });
+    }
+  },
+);
+
+// Mise à jour métadonnées — owner/admin
+router.patch('/fichiers_calques/:id', authMiddleware, requireRole(allRoles),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const { data: existing } = await supabase
+        .from('fichiers_calques').select('calque_id').eq('id', req.params.id).single();
+      if (!existing) { res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Fichier introuvable.' } }); return; }
+      if (!await isCalqueOwnerOrAdmin(req.user!.id, (existing as { calque_id: string }).calque_id)) {
+        res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Droits insuffisants.' } });
+        return;
+      }
+      const clean = pick(req.body, ['nom', 'order', 'description', 'niveau_accreditation', 'storage_path', 'is_downloadable']);
+      if ('niveau_accreditation' in clean) clean.niveau_accreditation = clampAccred(Number(clean.niveau_accreditation));
+      const { data, error } = await supabase
+        .from('fichiers_calques').update(clean).eq('id', req.params.id).select(FICHIER_CALQUE_SELECT).single();
+      if (error) throw error;
+      res.json(data);
+    } catch (err) {
+      logger.error({ err, route: '[db/fichiers_calques PATCH]' }, 'Erreur');
+      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur mise à jour fichier calque.' } });
+    }
+  },
+);
+
+// Suppression — owner/admin
+router.delete('/fichiers_calques/:id', authMiddleware, requireRole(allRoles),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const { data: existing } = await supabase
+        .from('fichiers_calques').select('calque_id, storage_path').eq('id', req.params.id).single();
+      if (!existing) { res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Fichier introuvable.' } }); return; }
+      const ex = existing as { calque_id: string; storage_path: string };
+      if (!await isCalqueOwnerOrAdmin(req.user!.id, ex.calque_id)) {
+        res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Droits insuffisants.' } });
+        return;
+      }
+      const { error } = await supabase.from('fichiers_calques').delete().eq('id', req.params.id);
+      if (error) throw error;
+      if (ex.storage_path) await supabaseAdmin.storage.from('Documents').remove([ex.storage_path]);
+      res.status(204).send();
+    } catch (err) {
+      logger.error({ err, route: '[db/fichiers_calques DELETE]' }, 'Erreur');
+      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur suppression fichier calque.' } });
+    }
+  },
+);
+
+// Upload PDF calque — owner/admin uniquement
+router.post('/upload/calque_pdf', authMiddleware, requireRole(allRoles),
+  uploadFichierCalque.single('file'),
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    if (!req.file) { res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Aucun fichier fourni.' } }); return; }
+    if (!isPdfContent(req.file.buffer)) { res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Seul le format PDF est accepté.' } }); return; }
+    const { calque_id, nom, description, niveau_accreditation, is_downloadable, fichier_id } = req.body as Record<string, string | undefined>;
+    if (!calque_id) { res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'calque_id requis.' } }); return; }
+    if (!await isCalqueOwnerOrAdmin(req.user!.id, calque_id)) {
+      res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Droits insuffisants.' } });
+      return;
+    }
+    const safeName    = req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const storagePath = `FichiersCalques/${calque_id}/${Date.now()}-${safeName}`;
+    const { error: upErr } = await supabaseAdmin.storage
+      .from('Documents').upload(storagePath, req.file.buffer, { contentType: 'application/pdf', upsert: false });
+    if (upErr) { res.status(500).json({ error: { code: 'STORAGE_ERROR', message: 'Erreur upload PDF.' } }); return; }
+    const { data: { publicUrl } } = supabaseAdmin.storage.from('Documents').getPublicUrl(storagePath);
+
+    // Remplacement d'un fichier existant
+    if (fichier_id) {
+      const { data: prev } = await supabase.from('fichiers_calques').select('storage_path').eq('id', fichier_id).single();
+      const prevPath = (prev as { storage_path: string } | null)?.storage_path;
+      if (prevPath) await supabaseAdmin.storage.from('Documents').remove([prevPath]);
+      const { data, error } = await supabase.from('fichiers_calques')
+        .update({ storage_path: storagePath })
+        .eq('id', fichier_id).select(FICHIER_CALQUE_SELECT).single();
+      if (error) throw error;
+      res.json({ record: data, url: publicUrl, path: storagePath });
+      return;
+    }
+
+    // Création d'un nouveau fichier
+    if (!nom) { res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'nom requis.' } }); return; }
+    const { data, error } = await supabase.from('fichiers_calques').insert({
+      calque_id,
+      nom,
+      description:          description ?? null,
+      niveau_accreditation: clampAccred(Number(niveau_accreditation ?? 0)),
+      storage_path:         storagePath,
+      is_downloadable:      is_downloadable === 'true',
+    }).select(FICHIER_CALQUE_SELECT).single();
+    if (error) throw error;
+    res.status(201).json({ record: data, url: publicUrl, path: storagePath });
+  },
+);
+
 export default router;

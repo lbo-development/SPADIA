@@ -116,6 +116,20 @@ export type PourValidation = {
   updated_at: string;
 };
 
+export type FichierCalque = {
+  id: string;
+  calque_id: string;
+  nom: string;
+  order: number;
+  description: string | null;
+  storage_path: string;
+  storage_public_url: string | null;
+  is_downloadable: boolean;
+  can_download: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Point = {
   id: string;
   calque_id: string;
@@ -252,6 +266,32 @@ export const db = {
     return apiClient.post<Photo>('/database/upload/fichier_point', form, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
+  },
+
+  listFichiersCalque: (calqueId: string) =>
+    apiClient.get<FichierCalque[]>(`/database/fichiers_calques?calque_id=${encodeURIComponent(calqueId)}`),
+  updateFichierCalque: (id: string, data: Record<string, unknown>) =>
+    apiClient.patch<FichierCalque>(`/database/fichiers_calques/${id}`, data),
+  removeFichierCalque: (id: string) =>
+    apiClient.delete(`/database/fichiers_calques/${id}`),
+  uploadCalquePdf: (file: File, calqueId: string, opts: {
+    nom: string;
+    description?: string;
+    niveau_accreditation?: number;
+    is_downloadable?: boolean;
+    fichier_id?: string;
+  }) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('calque_id', calqueId);
+    form.append('nom', opts.nom);
+    if (opts.description)           form.append('description', opts.description);
+    if (opts.niveau_accreditation !== undefined) form.append('niveau_accreditation', String(opts.niveau_accreditation));
+    if (opts.is_downloadable !== undefined)       form.append('is_downloadable', String(opts.is_downloadable));
+    if (opts.fichier_id)            form.append('fichier_id', opts.fichier_id);
+    return apiClient.post<{ record: FichierCalque; url: string; path: string }>(
+      '/database/upload/calque_pdf', form, { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
   },
 
   listUsers: () =>

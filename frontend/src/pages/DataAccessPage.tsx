@@ -247,7 +247,7 @@ function FavoriListBox({ favoris, onNavigate }: { favoris: DashboardFavori[]; on
   );
 }
 
-function CalqueListBox({ calques, onNavigate }: { calques: DashboardCalque[]; onNavigate: (nodeId: string, expanded: string[]) => void }) {
+function CalqueListBox({ calques, onNavigate }: { calques: DashboardCalque[]; onNavigate: (nodeId: string, expanded: string[], calqueId: string) => void }) {
   const [hovered, setHovered] = useState<string | null>(null);
   return (
     <ListBoxShell title="Mes calques" count={calques.length} maxHeight={290}>
@@ -263,8 +263,8 @@ function CalqueListBox({ calques, onNavigate }: { calques: DashboardCalque[]; on
               key={c.id}
               role={canNav ? 'button' : undefined}
               tabIndex={canNav ? 0 : undefined}
-              onClick={canNav ? () => onNavigate(nodeId, ids) : undefined}
-              onKeyDown={canNav ? e => { if (e.key === 'Enter' || e.key === ' ') onNavigate(nodeId, ids); } : undefined}
+              onClick={canNav ? () => onNavigate(nodeId, ids, c.id) : undefined}
+              onKeyDown={canNav ? e => { if (e.key === 'Enter' || e.key === ' ') onNavigate(nodeId, ids, c.id); } : undefined}
               onMouseEnter={() => canNav && setHovered(c.id)}
               onMouseLeave={() => setHovered(null)}
               title={canNav ? 'Ouvrir dans la carte' : undefined}
@@ -311,8 +311,8 @@ export default function DataAccessPage() {
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState(false);
 
-  function goToCarte(nodeId: string, expanded: string[], mapState?: MapStateFavori | null) {
-    navigate('/carte', { state: { nodeId, expanded, map_state: mapState ?? null } });
+  function goToCarte(nodeId: string, expanded: string[], mapState?: MapStateFavori | null, calqueId?: string | null) {
+    navigate('/carte', { state: { nodeId, expanded, map_state: mapState ?? null, calque_id: calqueId ?? null } });
   }
 
   useEffect(() => {
@@ -377,8 +377,8 @@ export default function DataAccessPage() {
           {/* ── 1. Favoris + Mes calques côte à côte ── */}
           <section>
             <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
-              <FavoriListBox favoris={data.favoris} onNavigate={goToCarte} />
-              <CalqueListBox calques={data.mesCalques} onNavigate={goToCarte} />
+              <FavoriListBox favoris={data.favoris} onNavigate={(nodeId, expanded, mapState) => goToCarte(nodeId, expanded, mapState)} />
+              <CalqueListBox calques={data.mesCalques} onNavigate={(nodeId, expanded, calqueId) => goToCarte(nodeId, expanded, null, calqueId)} />
             </div>
           </section>
 

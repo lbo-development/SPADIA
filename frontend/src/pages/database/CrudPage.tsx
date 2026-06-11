@@ -53,6 +53,7 @@ interface Props {
   filterFn?: (row: Row) => boolean;
   filterSlot?: React.ReactNode;
   rowActions?: Array<{ icon: React.ReactNode; title: string; onClick: (row: Row) => void }>;
+  onDeleteClick?: (row: Row) => void;
   compact?: boolean;
 }
 
@@ -147,7 +148,7 @@ function ReorderIcon() {
 
 // ── Composant principal ──────────────────────────────────────────────────────
 
-export default function CrudPage({ entity, title, columns, fields, canWrite, canCreate = true, searchKeys, reorderable, orderKey = 'order', orderLabel = 'nom', filterFn, filterSlot, rowActions, compact = false }: Props) {
+export default function CrudPage({ entity, title, columns, fields, canWrite, canCreate = true, searchKeys, reorderable, orderKey = 'order', orderLabel = 'nom', filterFn, filterSlot, rowActions, onDeleteClick, compact = false }: Props) {
   const [rows, setRows]         = useState<Row[]>([]);
   const [loading, setLoading]   = useState(true);
   const [search, setSearch]     = useState('');
@@ -663,8 +664,8 @@ setRows(data as Row[]);
                         <button style={s.rowEditBtn} onClick={() => openEdit(row)} title="Modifier">
                           <PencilIcon />
                         </button>
-                        <button style={s.rowDelBtn} onClick={() => setDeleteId(row.id as string)} title="Supprimer">
-                          ✕
+                        <button style={s.rowDelBtn} onClick={() => onDeleteClick ? onDeleteClick(row) : setDeleteId(row.id as string)} title="Supprimer">
+                          <TrashIcon />
                         </button>
                       </div>
                     </td>
@@ -684,10 +685,10 @@ setRows(data as Row[]);
           onClose={() => { setModal(null); setShowPassword(false); }}
           maxWidth={560}
           footer={
-            <div style={s.modalFoot}>
-              <button style={s.cancelBtn} onClick={() => { setModal(null); setShowPassword(false); }} disabled={saving}>Annuler</button>
-              <button style={saving ? s.saveBtnOff : s.saveBtn} onClick={handleSave} disabled={saving}>
-                {saving ? <><SpinnerIcon /> Sauvegarde…</> : 'Sauvegarder'}
+            <div className="modal-footer">
+              <button className="modal-btn modal-btn-cancel" onClick={() => { setModal(null); setShowPassword(false); }} disabled={saving}>Annuler</button>
+              <button className="modal-btn modal-btn-save" onClick={handleSave} disabled={saving}>
+                {saving ? <><SpinnerIcon /> Enregistrement…</> : 'Enregistrer'}
               </button>
             </div>
           }

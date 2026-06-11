@@ -7,7 +7,7 @@ import { Modal } from '@/components/Modal';
 import { extractErrorMessage } from '@/lib/errors';
 import { Spinner } from '@/components/ui';
 import { db } from '@/api/database';
-import type { Calque, Point, Photo, Favori, MapStateFavori } from '@/api/database';
+import type { Calque, Point, Photo, FichierCalque, Favori, MapStateFavori } from '@/api/database';
 import * as XLSX from 'xlsx';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -241,6 +241,14 @@ export default function CartoPage() {
   const pendingNavMapRef      = useRef<MapStateFavori | null>(
     (location.state as { map_state?: MapStateFavori } | null)?.map_state ?? null
   );
+  const pendingNavNodeRef     = useRef<string | null>(
+    !(location.state as { map_state?: unknown } | null)?.map_state
+      ? ((location.state as { nodeId?: string } | null)?.nodeId ?? null)
+      : null
+  );
+  const pendingCalqueIdRef    = useRef<string | null>(
+    (location.state as { calque_id?: string } | null)?.calque_id ?? null
+  );
 
   const [zoom,        setZoom]        = useState(6);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -249,6 +257,8 @@ export default function CartoPage() {
   const planAddModeRef       = useRef(false);
   const planSelCalqueIdRef   = useRef<string | null>(null);
   const planMoveModeRef      = useRef(false);
+  const planToolbarRef       = useRef<HTMLDivElement>(null);
+  const [planToolbarH,       setPlanToolbarH]       = useState(0);
 
   // Refs pour les calques géo des sites (carte principale)
   const geoMarkersRef        = useRef<L.Marker[]>([]);
@@ -266,6 +276,31 @@ export default function CartoPage() {
   const [planSaving,      setPlanSaving]      = useState(false);
   const [planSelectedPoint, setPlanSelectedPoint] = useState<Point | null>(null);
   const [planMoveMode,       setPlanMoveMode]       = useState(false);
+  const [showPointsListModal, setShowPointsListModal] = useState(false);
+  const [pointsListMode,      setPointsListMode]      = useState<'plan' | 'geo'>('plan');
+  const [pointsFilters,      setPointsFilters]      = useState<Record<string, Set<string>>>({});
+  const [filterDropKey,      setFilterDropKey]      = useState<string | null>(null);
+  const [filterSearch,       setFilterSearch]       = useState('');
+  const [colWidths,          setColWidths]          = useState<Record<string, number>>({});
+  const filterBtnRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const colResizeRef  = useRef<{ key: string; startX: number; startW: number } | null>(null);
+
+  // ── Modal fichiers PDF du calque ──────────────────────────────────────────
+  const [showCalquePdfModal,    setShowCalquePdfModal]    = useState(false);
+  const [calquePdfMode,         setCalquePdfMode]         = useState<'plan' | 'geo'>('plan');
+  const [calqueFichiers,        setCalqueFichiers]        = useState<FichierCalque[]>([]);
+  const [calqueFichiersLoading, setCalqueFichiersLoading] = useState(false);
+  const [calquePdfUploading,    setCalquePdfUploading]    = useState(false);
+  const [calquePdfDeleteId,     setCalquePdfDeleteId]     = useState<string | null>(null);
+  const [calquePdfEditId,       setCalquePdfEditId]       = useState<string | null>(null);
+  const [calquePdfShowUpload,   setCalquePdfShowUpload]   = useState(false);
+  const [calquePdfError,        setCalquePdfError]        = useState<string | null>(null);
+  const [calquePdfFormNom,      setCalquePdfFormNom]      = useState('');
+  const [calquePdfFormDesc,     setCalquePdfFormDesc]     = useState('');
+  const [calquePdfFormDl,       setCalquePdfFormDl]       = useState(false);
+  const [calquePdfFile,         setCalquePdfFile]         = useState<File | null>(null);
+  const [calquePdfDragOver,     setCalquePdfDragOver]     = useState(false);
+  const calquePdfFileInputRef   = useRef<HTMLInputElement>(null);
   const [planPanelCollapsed, setPlanPanelCollapsed] = useState(false);
   const [planEditMode,       setPlanEditMode]       = useState(false);
   const [planEditNom,        setPlanEditNom]        = useState('');
@@ -297,6 +332,7 @@ export default function CartoPage() {
   const [dragFromPhotoIdx,   setDragFromPhotoIdx]   = useState<number | null>(null);
   const [dragOverPhotoIdx,   setDragOverPhotoIdx]   = useState<number | null>(null);
   const [pointPdfs,          setPointPdfs]          = useState<Photo[]>([]);
+  const [selectedPdfId,      setSelectedPdfId]      = useState<string | null>(null);
   const [pdfDragOver,        setPdfDragOver]        = useState(false);
   const [pdfUploading,       setPdfUploading]       = useState(false);
   const [renamingId,         setRenamingId]         = useState<string | null>(null);
@@ -309,6 +345,7 @@ export default function CartoPage() {
   const [calquesActif,        setCalquesActif]        = useState<string | null>(null);
   const [geoCalquesDropOpen,  setGeoCalquesDropOpen]  = useState(false);
   const [planCalquesDropOpen, setPlanCalquesDropOpen] = useState(false);
+  const planCalquesBtnRef = useRef<HTMLButtonElement>(null);
 
   const [favoris,        setFavoris]        = useState<Favori[]>([]);
   const [favorisPanelOpen, setFavorisPanelOpen] = useState(false);
@@ -388,7 +425,13 @@ export default function CartoPage() {
             setCalquesActif(pending.calques_actif);
             mapRef.current?.setView([pending.lat, pending.lng], pending.zoom, { animate: false });
           } else {
-            if (calques.length > 0) setCalquesActif(calques[0].id);
+            const pendingCalqueId = pendingCalqueIdRef.current;
+            if (pendingCalqueId && calques.find(c => c.id === pendingCalqueId)) {
+              pendingCalqueIdRef.current = null;
+              setCalquesActif(pendingCalqueId);
+            } else if (calques.length > 0) {
+              setCalquesActif(calques[0].id);
+            }
           }
           setFavoriApplying(false);
         }).catch(() => { setFavoriApplying(false); });
@@ -519,14 +562,23 @@ export default function CartoPage() {
 
   // ── Applique le map_state transmis par la navigation depuis le dashboard ────
   useEffect(() => {
-    if (loading || tree.length === 0 || !pendingNavMapRef.current) return;
-    const ms = pendingNavMapRef.current;
-    pendingNavMapRef.current = null;
-    pendingMapStateRef.current = ms;
-    setFavoriApplying(true);
-    const targetNode = findNode(tree, ms.load_id);
-    if (targetNode) handleNodeDoubleClick(targetNode);
-    else setFavoriApplying(false);
+    if (loading || tree.length === 0) return;
+    if (pendingNavMapRef.current) {
+      const ms = pendingNavMapRef.current;
+      pendingNavMapRef.current = null;
+      pendingMapStateRef.current = ms;
+      setFavoriApplying(true);
+      const targetNode = findNode(tree, ms.load_id);
+      if (targetNode) handleNodeDoubleClick(targetNode);
+      else setFavoriApplying(false);
+      return;
+    }
+    if (pendingNavNodeRef.current) {
+      const nodeId = pendingNavNodeRef.current;
+      pendingNavNodeRef.current = null;
+      const targetNode = findNode(tree, nodeId);
+      if (targetNode) handleNodeDoubleClick(targetNode);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, tree]);
 
@@ -556,6 +608,7 @@ export default function CartoPage() {
     setPlanDeleteConfirm(false);
     setPhotoDeleteConfirm(false);
     setRenamingId(null);
+    setSelectedPdfId(null);
     setPointPhotos([]);
     setPointPdfs([]);
     setCarouselIndex(0);
@@ -564,7 +617,9 @@ export default function CartoPage() {
     db.listPhotos(planSelectedPoint.id)
       .then(r => {
         setPointPhotos(r.data.filter(p => p.file_type === 'image'));
-        setPointPdfs(r.data.filter(p => p.file_type === 'pdf'));
+        const pdfs = r.data.filter(p => p.file_type === 'pdf');
+        setPointPdfs(pdfs);
+        setSelectedPdfId(pdfs[0]?.id ?? null);
       })
       .catch(() => {})
       .finally(() => setPhotosLoading(false));
@@ -586,14 +641,16 @@ export default function CartoPage() {
       const color    = safeColor(rawColor ?? '#333');
       const iconUrl  = calque?.icone_public_url;
       for (const p of pts) {
+        const isSel   = p.id === planSelectedPoint?.id;
         const safeUrl = iconUrl ? safeCssUrl(iconUrl) : '';
         const iconHtml = safeUrl
           ? rawColor
             ? `<div style="width:20px;height:20px;background-color:${color};-webkit-mask-image:url(${safeUrl});mask-image:url(${safeUrl});-webkit-mask-size:contain;mask-size:contain;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;"></div>`
             : `<img src="${safeUrl}" style="width:20px;height:20px;object-fit:contain;display:block;" />`
           : `<div style="width:12px;height:12px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.4);"></div>`;
+        const ring = isSel ? `<div style="position:absolute;inset:-5px;border-radius:50%;border:2px solid #e53e3e;pointer-events:none;"></div>` : '';
         const icon = L.divIcon({
-          html: `<div style="pointer-events:none;">${iconHtml}</div>`,
+          html: `<div style="position:relative;display:inline-flex;align-items:center;justify-content:center;pointer-events:none;">${iconHtml}${ring}</div>`,
           className: '',
           iconAnchor: [10, 10],
         });
@@ -623,7 +680,7 @@ export default function CartoPage() {
         planMarkersRef.current.push(marker);
       }
     }
-  }, [planPointsMap, planCalques, planMoveMode, planSelCalqueId, calquesVisible, zoom]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [planPointsMap, planCalques, planMoveMode, planSelCalqueId, calquesVisible, zoom, planSelectedPoint]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Marqueurs géo des points de site sur la carte principale ─────────────
   useEffect(() => {
@@ -639,13 +696,15 @@ export default function CartoPage() {
       const color    = safeColor(rawColor ?? C.accent);
       const iconUrl  = calque?.icone_public_url;
       for (const p of pts) {
+        const isSel   = p.id === planSelectedPoint?.id;
         const safeUrl = iconUrl ? safeCssUrl(iconUrl) : '';
         const iconHtml = safeUrl
           ? rawColor
             ? `<div style="width:20px;height:20px;background-color:${color};-webkit-mask-image:url(${safeUrl});mask-image:url(${safeUrl});-webkit-mask-size:contain;mask-size:contain;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;"></div>`
             : `<img src="${safeUrl}" style="width:20px;height:20px;object-fit:contain;display:block;" />`
           : `<div style="width:12px;height:12px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.4);"></div>`;
-        const icon = L.divIcon({ html: `<div style="pointer-events:none;">${iconHtml}</div>`, className: '', iconAnchor: [10, 10] });
+        const ring = isSel ? `<div style="position:absolute;inset:-5px;border-radius:50%;border:2px solid #e53e3e;pointer-events:none;"></div>` : '';
+        const icon = L.divIcon({ html: `<div style="position:relative;display:inline-flex;align-items:center;justify-content:center;pointer-events:none;">${iconHtml}${ring}</div>`, className: '', iconAnchor: [10, 10] });
         const isDraggableGeo = geoMoveMode && calqueId === calquesActif;
         const marker = L.marker([p.coord_y_ou_lat, p.coord_x_ou_lon], { icon, draggable: isDraggableGeo });
         marker.on('click', () => {
@@ -670,7 +729,7 @@ export default function CartoPage() {
         geoMarkersRef.current.push(marker);
       }
     }
-  }, [geoPointsMap, calquesList, geoMoveMode, calquesActif, calquesVisible, planViewer]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [geoPointsMap, calquesList, geoMoveMode, calquesActif, calquesVisible, planViewer, planSelectedPoint]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Marqueur du point en cours de placement ───────────────────────────────
   useEffect(() => {
@@ -709,7 +768,13 @@ export default function CartoPage() {
         pendingMapStateRef.current = null;
         setPlanSelCalqueId(pending.calques_actif);
       } else {
-        if (calques.length > 0) setPlanSelCalqueId(calques[0].id);
+        const pendingCalqueId = pendingCalqueIdRef.current;
+        if (pendingCalqueId && calques.find(c => c.id === pendingCalqueId)) {
+          pendingCalqueIdRef.current = null;
+          setPlanSelCalqueId(pendingCalqueId);
+        } else if (calques.length > 0) {
+          setPlanSelCalqueId(calques[0].id);
+        }
       }
       const results = await Promise.all(
         calques.map(c => db.listPoints(c.id).then(r => ({ id: c.id, pts: r.data })).catch(() => ({ id: c.id, pts: [] as Point[] })))
@@ -1204,6 +1269,28 @@ export default function CartoPage() {
                     >
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                     </button>
+                    <button
+                      onClick={() => { setPointsListMode('geo'); setShowPointsListModal(true); }}
+                      title="Liste des points"
+                      disabled={!calquesActif}
+                      style={{ ...s.planZoomBtn, opacity: !calquesActif ? 0.35 : 1 }}
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+                        <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => { setCalquePdfMode('geo'); setShowCalquePdfModal(true); setCalqueFichiers([]); setCalquePdfError(null); setCalquePdfShowUpload(false); setCalquePdfEditId(null); if (calquesActif) { setCalqueFichiersLoading(true); db.listFichiersCalque(calquesActif).then(r => setCalqueFichiers(r.data)).catch(() => {}).finally(() => setCalqueFichiersLoading(false)); } }}
+                      title="Fichiers PDF du calque"
+                      disabled={!calquesActif}
+                      style={{ ...s.planZoomBtn, opacity: !calquesActif ? 0.35 : 1 }}
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                        <line x1="9" y1="15" x2="15" y2="15"/><line x1="9" y1="11" x2="15" y2="11"/>
+                      </svg>
+                    </button>
                   </>
                 )}
 
@@ -1255,7 +1342,7 @@ export default function CartoPage() {
           {planViewer && (
             <div style={{ position: 'absolute', inset: 0, background: C.bg, display: 'flex', flexDirection: 'column', zIndex: 500 }}>
               {/* Header */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderBottom: `1px solid ${C.border}`, background: C.surface, flexShrink: 0 }}>
+              <div ref={el => { (planToolbarRef as React.MutableRefObject<HTMLDivElement | null>).current = el; if (el) setPlanToolbarH(el.offsetHeight); }} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderBottom: `1px solid ${C.border}`, background: C.surface, flexShrink: 0 }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.accent} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
                 </svg>
@@ -1267,6 +1354,7 @@ export default function CartoPage() {
                 {planCalques.length > 0 && (
                   <div style={{ position: 'relative', width: '35%', flexShrink: 0, marginLeft: 'auto' }}>
                     <button
+                      ref={planCalquesBtnRef}
                       onClick={() => setPlanCalquesDropOpen(o => !o)}
                       style={{ width: '100%', height: 26, background: C.surface, border: `1px solid ${planCalquesDropOpen ? C.accent : C.border}`, borderRadius: 4, color: planSelCalqueId ? C.text : C.muted, fontSize: 11, padding: '0 6px 0 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
                     >
@@ -1275,10 +1363,12 @@ export default function CartoPage() {
                       </span>
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, transform: planCalquesDropOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}><polyline points="6 9 12 15 18 9"/></svg>
                     </button>
-                    {planCalquesDropOpen && (
+                    {planCalquesDropOpen && (() => {
+                      const r = planCalquesBtnRef.current?.getBoundingClientRect();
+                      return (
                       <>
-                        <div onClick={() => setPlanCalquesDropOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 199 }} />
-                        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 2, zIndex: 200, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 4, overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.45)' }}>
+                        <div onClick={() => setPlanCalquesDropOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 9998 }} />
+                        <div style={{ position: 'fixed', top: r ? r.bottom + 2 : 0, left: r ? r.left : 0, width: r ? r.width : 0, zIndex: 9999, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 4, overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.45)' }}>
                           {planCalques.map(c => {
                             const isVisible = calquesVisible[c.id] ?? true;
                             const isActif   = planSelCalqueId === c.id;
@@ -1308,7 +1398,8 @@ export default function CartoPage() {
                           })}
                         </div>
                       </>
-                    )}
+                      );
+                    })()}
                   </div>
                 )}
                 {canEditPlan && <button
@@ -1349,6 +1440,28 @@ export default function CartoPage() {
                   style={{ ...s.planZoomBtn, color: C.muted, opacity: (!planSelCalqueId || !canDownloadPlan) ? 0.35 : 1 }}
                 >
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </button>
+                <button
+                  onClick={() => { setPointsListMode('plan'); setShowPointsListModal(true); }}
+                  title="Liste des points"
+                  disabled={!planSelCalqueId}
+                  style={{ ...s.planZoomBtn, opacity: !planSelCalqueId ? 0.35 : 1 }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+                    <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+                  </svg>
+                </button>
+                <button
+                  onClick={() => { setCalquePdfMode('plan'); setShowCalquePdfModal(true); setCalqueFichiers([]); setCalquePdfError(null); setCalquePdfShowUpload(false); setCalquePdfEditId(null); if (planSelCalqueId) { setCalqueFichiersLoading(true); db.listFichiersCalque(planSelCalqueId).then(r => setCalqueFichiers(r.data)).catch(() => {}).finally(() => setCalqueFichiersLoading(false)); } }}
+                  title="Fichiers PDF du calque"
+                  disabled={!planSelCalqueId}
+                  style={{ ...s.planZoomBtn, opacity: !planSelCalqueId ? 0.35 : 1 }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                    <line x1="9" y1="15" x2="15" y2="15"/><line x1="9" y1="11" x2="15" y2="11"/>
+                  </svg>
                 </button>
                 <button onClick={() => { setPlanViewer(null); setPlanAddMode(false); setPlanMoveMode(false); setPlanPendingPos(null); setPlanSelectedPoint(null); setPlanSiteNom(''); setPlanInstNom(''); }} title="Fermer" style={{ ...s.planZoomBtn, marginLeft: 4 }}>×</button>
               </div>
@@ -1397,13 +1510,475 @@ export default function CartoPage() {
             </div>
           )}
 
+          {/* ── Modale liste des points du calque actif ── */}
+          {showPointsListModal && (() => {
+            const isGeoMode  = pointsListMode === 'geo';
+            const activeId   = isGeoMode ? calquesActif : planSelCalqueId;
+            if (!activeId) return null;
+            const calque   = isGeoMode ? calquesList.find(c => c.id === activeId) : planCalques.find(c => c.id === activeId);
+            const pts      = (isGeoMode ? geoPointsMap[activeId] : planPointsMap[activeId]) ?? [];
+            const panTo    = (p: Point) => isGeoMode ? mapRef.current?.panTo([p.coord_y_ou_lat, p.coord_x_ou_lon]) : planMapRef.current?.panTo([p.coord_y_ou_lat, p.coord_x_ou_lon]);
+            const color    = safeColor(calque?.couleur ?? C.accent);
+            const allKeys  = Array.from(new Set(pts.flatMap(p => Object.keys(resolveChampSource(p.champs)).filter(k => !EXCLUDED_PROPS.has(k)))));
+            const columns  = ['__nom__', ...allKeys];
+            const getColW  = (key: string) => colWidths[key] ?? (key === '__nom__' ? 180 : 150);
+            const colTpl   = columns.map(k => `${getColW(k)}px`).join(' ');
+
+            const startResize = (key: string, e: React.MouseEvent) => {
+              e.preventDefault();
+              colResizeRef.current = { key, startX: e.clientX, startW: getColW(key) };
+              document.body.style.cursor = 'col-resize';
+              document.body.style.userSelect = 'none';
+              const onMove = (ev: MouseEvent) => {
+                if (!colResizeRef.current) return;
+                const delta = ev.clientX - colResizeRef.current.startX;
+                const newW  = Math.max(60, colResizeRef.current.startW + delta);
+                setColWidths(prev => ({ ...prev, [colResizeRef.current!.key]: newW }));
+              };
+              const onUp = () => {
+                colResizeRef.current = null;
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+              };
+              document.addEventListener('mousemove', onMove);
+              document.addEventListener('mouseup', onUp);
+            };
+
+            const getVal = (p: Point, key: string) =>
+              key === '__nom__' ? p.nom : String(resolveChampSource(p.champs)[key] ?? '');
+
+            const uniqueVals = (key: string) =>
+              [...new Set(pts.map(p => getVal(p, key)))].sort((a, b) => a.localeCompare(b, 'fr'));
+
+            const filteredPts = pts.filter(p =>
+              Object.entries(pointsFilters).every(([key, allowed]) => allowed.has(getVal(p, key)))
+            );
+
+            const isFiltered = (key: string) => key in pointsFilters;
+            const hasFilters = Object.keys(pointsFilters).length > 0;
+
+            const toggleVal = (key: string, val: string) => {
+              setPointsFilters(prev => {
+                const all  = uniqueVals(key);
+                const cur  = prev[key] ?? new Set(all);
+                const next = new Set(cur);
+                if (next.has(val)) next.delete(val); else next.add(val);
+                if (next.size === all.length) { const { [key]: _, ...rest } = prev; return rest; }
+                return { ...prev, [key]: next };
+              });
+            };
+
+            const toggleAll = (key: string) => {
+              setPointsFilters(prev => {
+                if (isFiltered(key)) { const { [key]: _, ...rest } = prev; return rest; }
+                return { ...prev, [key]: new Set<string>() };
+              });
+            };
+
+            const ROW_H = 32;
+            const cellStyle = (key: string): React.CSSProperties => ({
+              height: ROW_H, padding: '0 10px', fontSize: 12,
+              color: key === '__nom__' ? C.text : C.muted,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              borderBottom: `1px solid ${C.border20}`,
+              fontWeight: key === '__nom__' ? 600 : 400,
+              boxSizing: 'border-box',
+            });
+
+            return (
+              <Modal
+                title={`Points — ${calque?.nom ?? ''} (${filteredPts.length}/${pts.length})`}
+                onClose={() => { setShowPointsListModal(false); setFilterDropKey(null); setPointsFilters({}); }}
+                maxWidth={900}
+                draggable
+                footer={
+                  <div className="modal-footer">
+                    {hasFilters && (
+                      <button className="modal-btn modal-btn-cancel" onClick={() => setPointsFilters({})}>
+                        Effacer les filtres
+                      </button>
+                    )}
+                    <button className="modal-btn modal-btn-cancel" onClick={() => { setShowPointsListModal(false); setFilterDropKey(null); setPointsFilters({}); }}>Fermer</button>
+                  </div>
+                }
+              >
+                {/* Annule le padding du corps modal pour un tableau pleine largeur */}
+                <div style={{ margin: -22 }}>
+                  {pts.length === 0 ? (
+                    <p style={{ margin: 0, padding: 22, color: C.muted, fontSize: 13 }}>Aucun point dans ce calque.</p>
+                  ) : (
+                    <>
+                      {/* En-tête colonnes avec filtres + poignées de redimensionnement */}
+                      <div style={{ display: 'grid', gridTemplateColumns: colTpl, borderBottom: `1px solid ${C.border}`, background: C.surface, overflow: 'hidden' }}>
+                        {columns.map(key => {
+                          const active = isFiltered(key);
+                          return (
+                            <div key={key} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 4, padding: '8px 10px 8px 10px', overflow: 'hidden' }}>
+                              <span style={{ flex: 1, fontSize: 11, color: active ? C.accent : C.muted, textTransform: 'uppercase', letterSpacing: '0.04em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: active ? 600 : 400 }}>
+                                {key === '__nom__' ? 'Nom' : key}
+                              </span>
+                              <button
+                                ref={el => { if (el) filterBtnRefs.current.set(key, el); else filterBtnRefs.current.delete(key); }}
+                                onClick={e => { e.stopPropagation(); setFilterSearch(''); setFilterDropKey(k => k === key ? null : key); }}
+                                title="Filtrer"
+                                style={{ width: 20, height: 20, background: active ? C.accent14 : 'transparent', border: `1px solid ${active ? C.accent44 : C.border}`, borderRadius: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: active ? C.accent : C.muted, padding: 0, flexShrink: 0 }}
+                              >
+                                <svg width="9" height="9" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                                </svg>
+                              </button>
+                              {/* Poignée redimensionnement */}
+                              <div
+                                onMouseDown={e => startResize(key, e)}
+                                style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 5, cursor: 'col-resize', zIndex: 2, background: 'transparent' }}
+                                onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.background = C.accent44}
+                                onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.background = 'transparent'}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Corps scrollable */}
+                      <div className="scrollbar-styled" style={{ overflowY: 'auto', maxHeight: ROW_H * 10 }}>
+                        {filteredPts.length === 0 ? (
+                          <div style={{ padding: '16px 22px', fontSize: 13, color: C.muted, fontStyle: 'italic' }}>Aucun résultat pour les filtres actifs.</div>
+                        ) : filteredPts.map(p => {
+                          const isSel = planSelectedPoint?.id === p.id;
+                          return (
+                            <div
+                              key={p.id}
+                              onClick={() => { setPlanSelectedPoint(p); setPlanPanelCollapsed(false); panTo(p); }}
+                              style={{ display: 'grid', gridTemplateColumns: colTpl, background: isSel ? C.accent14 : 'transparent', cursor: 'pointer', transition: 'background 0.1s' }}
+                              onMouseEnter={e => { if (!isSel) (e.currentTarget as HTMLDivElement).style.background = C.surface2; }}
+                              onMouseLeave={e => { if (!isSel) (e.currentTarget as HTMLDivElement).style.background = isSel ? C.accent14 : 'transparent'; }}
+                            >
+                              {columns.map((key, i) => (
+                                <div key={key} style={{ ...cellStyle(key), display: 'flex', alignItems: 'center', gap: i === 0 ? 8 : 0 }}>
+                                  {i === 0 && <div style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0 }} />}
+                                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {getVal(p, key) || <span style={{ color: C.muted, fontStyle: 'italic' }}>—</span>}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Dropdown filtre (position fixed) */}
+                      {filterDropKey && (() => {
+                        const r    = filterBtnRefs.current.get(filterDropKey)?.getBoundingClientRect();
+                        const vals = uniqueVals(filterDropKey);
+                        const shown = filterSearch ? vals.filter(v => v.toLowerCase().includes(filterSearch.toLowerCase())) : vals;
+                        const active  = pointsFilters[filterDropKey];
+                        const allSel  = !active || vals.every(v => active.has(v));
+                        return (
+                          <>
+                            <div onClick={() => setFilterDropKey(null)} style={{ position: 'fixed', inset: 0, zIndex: 1001 }} />
+                            <div style={{ position: 'fixed', top: r ? r.bottom + 2 : 0, left: r ? r.left : 0, width: 240, zIndex: 1002, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.4)', overflow: 'hidden' }}>
+                              <div style={{ padding: '8px 10px', borderBottom: `1px solid ${C.border}` }}>
+                                <input
+                                  autoFocus
+                                  value={filterSearch}
+                                  onChange={e => setFilterSearch(e.target.value)}
+                                  placeholder="Rechercher une valeur…"
+                                  style={{ width: '100%', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, color: C.text, fontSize: 12, padding: '5px 8px', outline: 'none', boxSizing: 'border-box' }}
+                                />
+                              </div>
+                              <div
+                                onClick={e => { e.stopPropagation(); toggleAll(filterDropKey); }}
+                                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderBottom: `1px solid ${C.border}`, cursor: 'pointer' }}
+                                onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.background = C.surface2}
+                                onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.background = 'transparent'}
+                              >
+                                <input type="checkbox" checked={allSel} onChange={() => toggleAll(filterDropKey)} onClick={e => e.stopPropagation()} style={{ accentColor: C.accent, flexShrink: 0 }} />
+                                <span style={{ fontSize: 12, color: C.text, fontStyle: 'italic' }}>(Tout sélectionner)</span>
+                              </div>
+                              <div className="scrollbar-styled" style={{ maxHeight: 220, overflowY: 'auto' }}>
+                                {shown.map(val => {
+                                  const checked = !active || active.has(val);
+                                  return (
+                                    <div
+                                      key={val}
+                                      onClick={e => { e.stopPropagation(); toggleVal(filterDropKey, val); }}
+                                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', cursor: 'pointer' }}
+                                      onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.background = C.surface2}
+                                      onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.background = 'transparent'}
+                                    >
+                                      <input type="checkbox" checked={checked} onChange={() => toggleVal(filterDropKey, val)} onClick={e => e.stopPropagation()} style={{ accentColor: C.accent, flexShrink: 0 }} />
+                                      <span style={{ fontSize: 12, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {val || <span style={{ color: C.muted, fontStyle: 'italic' }}>—</span>}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </>
+                  )}
+                </div>
+              </Modal>
+            );
+          })()}
+
+          {/* ── Modal fichiers PDF du calque ── */}
+          {showCalquePdfModal && (() => {
+            const isGeo           = calquePdfMode === 'geo';
+            const activeCalqueId  = isGeo ? calquesActif : planSelCalqueId;
+            const activeCalque    = isGeo
+              ? calquesList.find(c => c.id === activeCalqueId)
+              : planCalques.find(c => c.id === activeCalqueId);
+            const canEdit         = isGeo ? canEditGeo : canEditPlan;
+            if (!activeCalqueId) return null;
+
+            async function handleDeleteFichier(id: string) {
+              setCalquePdfError(null);
+              try {
+                await db.removeFichierCalque(id);
+                setCalqueFichiers(prev => prev.filter(f => f.id !== id));
+                setCalquePdfDeleteId(null);
+              } catch (e) {
+                setCalquePdfError(extractErrorMessage(e));
+              }
+            }
+
+            async function handleSaveEdit() {
+              if (!calquePdfEditId) return;
+              setCalquePdfUploading(true); setCalquePdfError(null);
+              try {
+                const res = await db.updateFichierCalque(calquePdfEditId, {
+                  nom: calquePdfFormNom.trim(),
+                  description: calquePdfFormDesc.trim() || null,
+                  is_downloadable: calquePdfFormDl,
+                });
+                setCalqueFichiers(prev => prev.map(f => f.id === calquePdfEditId ? { ...f, ...res.data } : f));
+                setCalquePdfEditId(null);
+              } catch (e) {
+                setCalquePdfError(extractErrorMessage(e));
+              } finally { setCalquePdfUploading(false); }
+            }
+
+            async function handleUpload() {
+              if (!calquePdfFile || !activeCalqueId) return;
+              setCalquePdfUploading(true); setCalquePdfError(null);
+              try {
+                const res = await db.uploadCalquePdf(calquePdfFile, activeCalqueId, {
+                  nom: calquePdfFormNom.trim() || calquePdfFile.name,
+                  description: calquePdfFormDesc.trim() || undefined,
+                  is_downloadable: calquePdfFormDl,
+                });
+                setCalqueFichiers(prev => [...prev, res.data.record]);
+                setCalquePdfShowUpload(false);
+                setCalquePdfFile(null);
+                setCalquePdfFormNom(''); setCalquePdfFormDesc(''); setCalquePdfFormDl(false);
+              } catch (e) {
+                setCalquePdfError(extractErrorMessage(e));
+              } finally { setCalquePdfUploading(false); }
+            }
+
+            function openEdit(f: FichierCalque) {
+              setCalquePdfEditId(f.id);
+              setCalquePdfFormNom(f.nom);
+              setCalquePdfFormDesc(f.description ?? '');
+              setCalquePdfFormDl(f.is_downloadable);
+              setCalquePdfShowUpload(false);
+            }
+
+            const inlineFormStyle: React.CSSProperties = {
+              background: C.surface2, border: `1px solid ${C.border}`, borderRadius: 10,
+              padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8,
+            };
+            const labelStyle: React.CSSProperties = { fontSize: 12, color: C.muted, marginBottom: 3, display: 'block' };
+            const inputStyle: React.CSSProperties = { width: '100%', padding: '6px 10px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, color: C.text, fontSize: 13, boxSizing: 'border-box' };
+
+            return (
+              <Modal
+                title={`PDF — ${activeCalque?.nom ?? ''}`}
+                icon={
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                    <line x1="9" y1="15" x2="15" y2="15"/><line x1="9" y1="11" x2="15" y2="11"/>
+                  </svg>
+                }
+                onClose={() => { setShowCalquePdfModal(false); setCalquePdfDeleteId(null); setCalquePdfEditId(null); setCalquePdfShowUpload(false); setCalquePdfError(null); }}
+                maxWidth={700}
+                draggable
+                error={calquePdfError ?? undefined}
+                footer={
+                  <div className="modal-footer">
+                    {canEdit && !calquePdfShowUpload && !calquePdfEditId && (
+                      <button
+                        className="modal-btn modal-btn-save"
+                        onClick={() => { setCalquePdfShowUpload(true); setCalquePdfEditId(null); setCalquePdfFormNom(''); setCalquePdfFormDesc(''); setCalquePdfFormDl(false); setCalquePdfFile(null); }}
+                      >
+                        + Ajouter un PDF
+                      </button>
+                    )}
+                    <button className="modal-btn modal-btn-cancel" onClick={() => { setShowCalquePdfModal(false); setCalquePdfDeleteId(null); setCalquePdfEditId(null); setCalquePdfShowUpload(false); setCalquePdfError(null); }}>Fermer</button>
+                  </div>
+                }
+              >
+                {calqueFichiersLoading ? (
+                  <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}><Spinner /></div>
+                ) : calqueFichiers.length === 0 && !calquePdfShowUpload ? (
+                  <div style={{ padding: '12px 0', fontSize: 13, color: C.muted, fontStyle: 'italic' }}>Aucun fichier PDF associé à ce calque.</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                    {calqueFichiers.map((f, idx) => (
+                      <div key={f.id}>
+                        {calquePdfDeleteId === f.id ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: C.errorBg, border: `1px solid ${C.danger44}`, borderRadius: 8, marginBottom: 4 }}>
+                            <span style={{ flex: 1, fontSize: 12, color: C.danger }}>Supprimer <strong>{f.nom}</strong> ? Action irréversible.</span>
+                            <button className="modal-btn" style={{ padding: '4px 12px', fontSize: 12, background: '#C0392B', color: '#fff', border: '1px solid #C0392B' }} onClick={() => handleDeleteFichier(f.id)}>Supprimer</button>
+                            <button className="modal-btn modal-btn-cancel" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => setCalquePdfDeleteId(null)}>Annuler</button>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 6px', borderBottom: idx < calqueFichiers.length - 1 ? `1px solid ${C.border}` : 'none' }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                            </svg>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.nom}</div>
+                              {f.description && <div style={{ fontSize: 11, color: C.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.description}</div>}
+                            </div>
+                            {f.is_downloadable && (
+                              <span style={{ fontSize: 10, color: C.accent, flexShrink: 0, padding: '2px 6px', background: C.accent18, borderRadius: 4 }}>DL</span>
+                            )}
+                            <button
+                              title="Voir le PDF"
+                              onClick={() => f.storage_public_url && setPdfViewer({ url: f.storage_public_url, nom: f.nom, isUploadable: f.can_download })}
+                              disabled={!f.storage_public_url}
+                              style={{ ...s.planZoomBtn, flexShrink: 0 }}
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                            </button>
+                            {f.can_download && f.storage_public_url && (
+                              <a
+                                href={f.storage_public_url}
+                                download={f.nom}
+                                target="_blank"
+                                rel="noreferrer"
+                                title="Télécharger"
+                                style={{ ...s.planZoomBtn, flexShrink: 0, textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                              >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                              </a>
+                            )}
+                            {canEdit && (
+                              <button title="Modifier" onClick={() => openEdit(f)} style={{ ...s.planZoomBtn, flexShrink: 0, color: calquePdfEditId === f.id ? C.accent : C.muted, borderColor: calquePdfEditId === f.id ? C.accent : C.border }}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                              </button>
+                            )}
+                            {canEdit && (
+                              <button title="Supprimer" onClick={() => { setCalquePdfDeleteId(f.id); setCalquePdfEditId(null); setCalquePdfShowUpload(false); }} style={{ ...s.planZoomBtn, flexShrink: 0, color: C.danger }}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                              </button>
+                            )}
+                          </div>
+                        )}
+                        {/* Formulaire d'édition inline */}
+                        {calquePdfEditId === f.id && (
+                          <div style={inlineFormStyle}>
+                            <div><label style={labelStyle}>Nom</label><input style={inputStyle} value={calquePdfFormNom} onChange={e => setCalquePdfFormNom(e.target.value)} /></div>
+                            <div><label style={labelStyle}>Description</label><input style={inputStyle} value={calquePdfFormDesc} onChange={e => setCalquePdfFormDesc(e.target.value)} /></div>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none' }}>
+                              <div
+                                style={{ width: 42, height: 24, borderRadius: 12, position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0, background: calquePdfFormDl ? C.primary : '#2D3A52' }}
+                                onClick={() => setCalquePdfFormDl(v => !v)}
+                              >
+                                <div style={{ position: 'absolute', top: 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.35)', transition: 'transform 0.2s', transform: calquePdfFormDl ? 'translateX(18px)' : 'translateX(2px)' }} />
+                              </div>
+                              <span style={{ fontSize: 13, color: C.text }}>{calquePdfFormDl ? 'Téléchargeable par les utilisateurs' : 'Non téléchargeable'}</span>
+                            </label>
+                            <div className="modal-footer" style={{ marginTop: 4 }}>
+                              <button className="modal-btn modal-btn-cancel" onClick={() => setCalquePdfEditId(null)} disabled={calquePdfUploading}>Annuler</button>
+                              <button className="modal-btn modal-btn-save" onClick={handleSaveEdit} disabled={calquePdfUploading}>
+                                {calquePdfUploading ? <><Spinner size={13} /> Enregistrement…</> : 'Enregistrer'}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Formulaire d'ajout */}
+                {calquePdfShowUpload && (
+                  <div style={{ ...inlineFormStyle, marginTop: calqueFichiers.length > 0 ? 12 : 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 2 }}>Ajouter un fichier PDF</div>
+                    <input
+                      ref={calquePdfFileInputRef}
+                      type="file" accept=".pdf,application/pdf"
+                      style={{ display: 'none' }}
+                      onChange={e => { const f = e.target.files?.[0] ?? null; setCalquePdfFile(f); if (f && !calquePdfFormNom) setCalquePdfFormNom(f.name.replace(/\.pdf$/i, '')); }}
+                    />
+                    <div
+                      onDragOver={e => { e.preventDefault(); setCalquePdfDragOver(true); }}
+                      onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setCalquePdfDragOver(false); }}
+                      onDrop={e => { e.preventDefault(); setCalquePdfDragOver(false); const f = e.dataTransfer.files[0]; if (f) { setCalquePdfFile(f); if (!calquePdfFormNom) setCalquePdfFormNom(f.name.replace(/\.pdf$/i, '')); } }}
+                      onClick={() => !calquePdfUploading && calquePdfFileInputRef.current?.click()}
+                      style={{ border: `2px dashed ${calquePdfDragOver ? C.accent : C.border}`, borderRadius: 8, padding: '18px 12px', textAlign: 'center' as const, cursor: calquePdfUploading ? 'default' : 'pointer', background: calquePdfDragOver ? '#378ADD0D' : 'transparent', transition: 'border-color 0.15s, background 0.15s' }}
+                    >
+                      {calquePdfFile ? (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                          </svg>
+                          <span style={{ fontSize: 12, color: C.text, fontWeight: 500 }}>{calquePdfFile.name}</span>
+                          <button
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 14, lineHeight: 1, padding: 2 }}
+                            onClick={e => { e.stopPropagation(); setCalquePdfFile(null); }}
+                            title="Retirer"
+                          >×</button>
+                        </div>
+                      ) : (
+                        <>
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={calquePdfDragOver ? C.accent : C.muted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 6 }}>
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                            <line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>
+                          </svg>
+                          <div style={{ fontSize: 12, color: calquePdfDragOver ? C.accent : C.muted }}>Glissez un PDF ici</div>
+                          <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>ou cliquez pour sélectionner</div>
+                        </>
+                      )}
+                    </div>
+                    <div><label style={labelStyle}>Nom</label><input style={inputStyle} value={calquePdfFormNom} onChange={e => setCalquePdfFormNom(e.target.value)} placeholder="Nom du document…" /></div>
+                    <div><label style={labelStyle}>Description</label><input style={inputStyle} value={calquePdfFormDesc} onChange={e => setCalquePdfFormDesc(e.target.value)} placeholder="Description (optionnel)" /></div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none' }}>
+                      <div
+                        style={{ width: 42, height: 24, borderRadius: 12, position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0, background: calquePdfFormDl ? C.primary : '#2D3A52' }}
+                        onClick={() => setCalquePdfFormDl(v => !v)}
+                      >
+                        <div style={{ position: 'absolute', top: 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.35)', transition: 'transform 0.2s', transform: calquePdfFormDl ? 'translateX(18px)' : 'translateX(2px)' }} />
+                      </div>
+                      <span style={{ fontSize: 13, color: C.text }}>{calquePdfFormDl ? 'Téléchargeable par les utilisateurs' : 'Non téléchargeable'}</span>
+                    </label>
+                    <div className="modal-footer" style={{ marginTop: 4 }}>
+                      <button className="modal-btn modal-btn-cancel" onClick={() => { setCalquePdfShowUpload(false); setCalquePdfFile(null); setCalquePdfFormNom(''); setCalquePdfFormDesc(''); setCalquePdfFormDl(false); }} disabled={calquePdfUploading}>Annuler</button>
+                      <button className="modal-btn modal-btn-save" onClick={handleUpload} disabled={!calquePdfFile || calquePdfUploading}>
+                        {calquePdfUploading ? <><Spinner size={13} /> Enregistrement…</> : 'Enregistrer'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </Modal>
+            );
+          })()}
+
           {/* ── Panel latéral point sélectionné (plan ET géo) ── */}
           {planSelectedPoint && (() => {
             const source = resolveChampSource(planSelectedPoint.champs);
             const entries = Object.entries(source).filter(([k]) => !EXCLUDED_PROPS.has(k));
             const calqueNom = [...planCalques, ...calquesList].find(c => c.id === planSelectedPoint.calque_id)?.nom;
             return (
-              <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, display: 'flex', zIndex: planViewer ? 600 : 10 }}>
+              <div style={{ position: 'absolute', right: 0, top: planViewer ? planToolbarH : 0, bottom: 0, display: 'flex', zIndex: planViewer ? 600 : 10 }}>
                     <div style={{ display: 'flex', height: '100%', flexShrink: 0 }}>
                       <PointPanelToggle collapsed={planPanelCollapsed} onClick={() => setPlanPanelCollapsed(c => !c)} />
                       <div style={{ width: planPanelCollapsed ? 0 : 300, background: C.surface2, borderLeft: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', transition: 'width 0.22s ease', flexShrink: 0 }}>
@@ -1557,26 +2132,33 @@ export default function CartoPage() {
                                     <span style={{ fontSize: 10, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Fichiers PDF</span>
                                     <span style={{ fontSize: 10, fontWeight: 600, color: C.accent, background: 'var(--accent-18)', borderRadius: 10, padding: '1px 6px', lineHeight: '14px' }}>{pointPdfs.length}</span>
                                   </div>
-                                  <div style={{ border: `1px solid ${C.border}`, borderRadius: 4, overflow: 'hidden', ...(pointPdfs.length > 4 ? { maxHeight: 140, overflowY: 'auto' } : {}) }}>
-                                    {pointPdfs.map((pdf, i) => (
-                                      <div key={pdf.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderBottom: i < pointPdfs.length - 1 ? `1px solid ${C.border20}` : 'none', background: 'transparent' }}>
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={C.muted} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
-                                        </svg>
-                                        <span style={{ flex: 1, fontSize: 12, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pdf.nom}</span>
-                                        {pdf.public_url && (
-                                          <button onClick={e => { e.stopPropagation(); setPdfViewer({ url: pdf.public_url!, nom: pdf.nom, isUploadable: false }); }} title="Ouvrir"
-                                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, color: C.accent, flexShrink: 0, background: 'transparent', border: 'none', borderRadius: 4, cursor: 'pointer', transition: 'background 0.12s', padding: 0 }}
-                                            onMouseEnter={e => (e.currentTarget.style.background = '#378ADD22')}
-                                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                                          >
-                                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
-                                            </svg>
-                                          </button>
-                                        )}
-                                      </div>
-                                    ))}
+                                  <div className={pointPdfs.length > 4 ? 'scrollbar-styled' : ''} style={{ border: `1px solid ${C.border}`, borderRadius: 4, overflow: 'hidden', ...(pointPdfs.length > 4 ? { maxHeight: 140, overflowY: 'auto' } : {}) }}>
+                                    {pointPdfs.map((pdf, i) => {
+                                      const isPdfSel = selectedPdfId === pdf.id;
+                                      return (
+                                        <div
+                                          key={pdf.id}
+                                          onClick={() => setSelectedPdfId(pdf.id)}
+                                          style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderBottom: i < pointPdfs.length - 1 ? `1px solid ${C.border20}` : 'none', background: isPdfSel ? '#378ADD22' : 'transparent', cursor: 'pointer', transition: 'background 0.12s' }}
+                                        >
+                                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={isPdfSel ? C.accent : C.muted} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                                          </svg>
+                                          <span style={{ flex: 1, fontSize: 12, color: isPdfSel ? C.text : C.muted, fontWeight: isPdfSel ? 500 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pdf.nom}</span>
+                                          {pdf.public_url && (
+                                            <button
+                                              onClick={e => { e.stopPropagation(); setSelectedPdfId(pdf.id); setPdfViewer({ url: pdf.public_url!, nom: pdf.nom, isUploadable: false }); }}
+                                              title="Ouvrir"
+                                              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, background: 'transparent', border: 'none', borderRadius: 4, cursor: 'pointer', color: isPdfSel ? C.accent : C.muted, flexShrink: 0, padding: 0 }}
+                                            >
+                                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                                              </svg>
+                                            </button>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
                                   </div>
                                 </div>
                               )}
@@ -1657,10 +2239,12 @@ export default function CartoPage() {
 
                             {/* Combobox PDF */}
                             {pointPdfs.length > 0 && (
-                              <div style={{ marginTop: 8, border: `1px solid ${C.border}`, borderRadius: 4, overflow: 'hidden', maxHeight: 130, overflowY: 'auto' }}>
-                                {pointPdfs.map((pdf, i) => (
-                                  <div key={pdf.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', borderBottom: i < pointPdfs.length - 1 ? `1px solid ${C.border20}` : 'none', background: 'transparent' }}>
-                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={C.muted} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                              <div className="scrollbar-styled" style={{ marginTop: 8, border: `1px solid ${C.border}`, borderRadius: 4, overflow: 'hidden', maxHeight: 130, overflowY: 'auto' }}>
+                                {pointPdfs.map((pdf, i) => {
+                                  const isPdfSel = selectedPdfId === pdf.id;
+                                  return (
+                                  <div key={pdf.id} onClick={() => setSelectedPdfId(pdf.id)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', borderBottom: i < pointPdfs.length - 1 ? `1px solid ${C.border20}` : 'none', background: isPdfSel ? '#378ADD22' : 'transparent', cursor: 'pointer', transition: 'background 0.12s' }}>
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={isPdfSel ? C.accent : C.muted} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                                       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
                                     </svg>
                                     {renamingId === pdf.id ? (
@@ -1674,26 +2258,27 @@ export default function CartoPage() {
                                       />
                                     ) : (
                                       <span
-                                        onClick={() => { setRenamingId(pdf.id); setRenameValue(pdf.nom); }}
+                                        onClick={e => { e.stopPropagation(); setRenamingId(pdf.id); setRenameValue(pdf.nom); }}
                                         title="Cliquer pour renommer"
-                                        style={{ flex: 1, fontSize: 11, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'text' }}>
+                                        style={{ flex: 1, fontSize: 11, color: isPdfSel ? C.text : C.muted, fontWeight: isPdfSel ? 500 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'text' }}>
                                         {pdf.nom}
                                       </span>
                                     )}
                                     {pdf.public_url && renamingId !== pdf.id && (
-                                      <button onClick={e => { e.stopPropagation(); setPdfViewer({ url: pdf.public_url!, nom: pdf.nom, isUploadable: false }); }} title="Ouvrir"
-                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 18, color: C.accent, flexShrink: 0, background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>
+                                      <button onClick={e => { e.stopPropagation(); setSelectedPdfId(pdf.id); setPdfViewer({ url: pdf.public_url!, nom: pdf.nom, isUploadable: false }); }} title="Ouvrir"
+                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 18, color: isPdfSel ? C.accent : C.muted, flexShrink: 0, background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>
                                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                           <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
                                         </svg>
                                       </button>
                                     )}
-                                    <button onClick={() => handleDeletePhoto(pdf)} title="Supprimer"
+                                    <button onClick={e => { e.stopPropagation(); handleDeletePhoto(pdf); }} title="Supprimer"
                                       style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 18, background: 'transparent', border: 'none', cursor: 'pointer', color: C.muted, flexShrink: 0, padding: 0, fontSize: 14, lineHeight: 1 }}>
                                       ×
                                     </button>
                                   </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             )}
                           </div>

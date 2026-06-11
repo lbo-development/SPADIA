@@ -257,9 +257,9 @@ function CalqueGeoModal({ initial, siteId, siteNom, onSave, onClose }: {
       maxWidth={560}
       error={err}
       footer={
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button type="button" style={btn(C.muted, true)} onClick={onClose}>Annuler</button>
-          <button type="submit" form="calque-geo-form" disabled={saving} style={btn(C.accent)}>{saving ? 'Enregistrement…' : 'Enregistrer'}</button>
+        <div className="modal-footer">
+          <button type="button" className="modal-btn modal-btn-cancel" onClick={onClose}>Annuler</button>
+          <button type="submit" form="calque-geo-form" className="modal-btn modal-btn-save" disabled={saving}>{saving ? <><SpinnerIcon /> Enregistrement…</> : 'Enregistrer'}</button>
         </div>
       }
     >
@@ -409,7 +409,9 @@ function SiteRow({ site, canWrite }: { site: Site; canWrite: boolean }) {
   const [loading,     setLoading]     = useState(false);
   const [addModal,    setAddModal]    = useState(false);
   const [editCalque,  setEditCalque]  = useState<Calque | null>(null);
-  const [delCalque,   setDelCalque]   = useState<Calque | null>(null);
+  const [delCalque,        setDelCalque]        = useState<Calque | null>(null);
+  const [delStats,         setDelStats]         = useState<{ pointCount: number } | null>(null);
+  const [delStatsLoading,  setDelStatsLoading]  = useState(false);
   const [reorderModal,    setReorderModal]    = useState(false);
   const [reorderList,     setReorderList]     = useState<Calque[]>([]);
   const [reordering,      setReordering]      = useState(false);
@@ -438,10 +440,25 @@ function SiteRow({ site, canWrite }: { site: Site; canWrite: boolean }) {
     await load();
   }
 
+  async function requestDelCalque(calque: Calque) {
+    setDelCalque(calque);
+    setDelStats(null);
+    setDelStatsLoading(true);
+    try {
+      const { data } = await db.listPoints(calque.id);
+      setDelStats({ pointCount: (data ?? []).length });
+    } catch {
+      setDelStats({ pointCount: 0 });
+    } finally {
+      setDelStatsLoading(false);
+    }
+  }
+
   async function confirmDelete() {
     if (!delCalque) return;
     await db.removeCalque(delCalque.id);
     setDelCalque(null);
+    setDelStats(null);
     await load();
   }
 
@@ -540,7 +557,7 @@ function SiteRow({ site, canWrite }: { site: Site; canWrite: boolean }) {
                 {canWrite && (
                   <>
                     <button title="Modifier" onClick={() => setEditCalque(c)} style={iconBtn(C.muted)}><PencilIcon /></button>
-                    <button title="Supprimer" onClick={() => setDelCalque(c)} style={iconBtn(C.danger)}><TrashIcon /></button>
+                    <button title="Supprimer" onClick={() => requestDelCalque(c)} style={iconBtn(C.danger)}><TrashIcon /></button>
                   </>
                 )}
               </div>
@@ -558,16 +575,24 @@ function SiteRow({ site, canWrite }: { site: Site; canWrite: boolean }) {
       {delCalque && (
         <Modal
           title="Confirmation"
-          onClose={() => setDelCalque(null)}
+          onClose={() => { setDelCalque(null); setDelStats(null); }}
           maxWidth={400}
           footer={
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button style={btn(C.muted, true)} onClick={() => setDelCalque(null)}>Annuler</button>
-              <button style={btn(C.danger)} onClick={confirmDelete}>Supprimer</button>
+              <button style={btn(C.muted, true)} onClick={() => { setDelCalque(null); setDelStats(null); }}>Annuler</button>
+              <button style={btn(C.danger)} onClick={confirmDelete} disabled={delStatsLoading}>Supprimer</button>
             </div>
           }
         >
-          <p style={{ margin: 0, fontSize: 14, color: C.text }}>{`Supprimer le calque « ${delCalque.nom} » ?`}</p>
+          {delStatsLoading ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: C.muted }}><SpinnerIcon /> Chargement…</div>
+          ) : delStats && delStats.pointCount > 0 ? (
+            <p style={{ margin: 0, fontSize: 14, color: C.text }}>
+              {`Supprimer le calque « ${delCalque.nom} » et ses ${delStats.pointCount} point${delStats.pointCount > 1 ? 's' : ''} ?`}
+            </p>
+          ) : (
+            <p style={{ margin: 0, fontSize: 14, color: C.text }}>{`Supprimer le calque « ${delCalque.nom} » ?`}</p>
+          )}
         </Modal>
       )}
       {reorderModal && (

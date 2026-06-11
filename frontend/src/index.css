@@ -281,3 +281,55 @@ input:-webkit-autofill:focus {
 .field-input:focus {
   border-color: var(--accent);
 }
+
+/* ══ MODAL BUTTONS ════════════════════════════════════════════════════════════ */
+
+.modal-footer {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.modal-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 34px;
+  min-width: 100px;
+  padding: 0 18px;
+  border-radius: var(--r-lg);
+  font-size: var(--text-base);
+  font-weight: 500;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.modal-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.modal-btn-cancel {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+.modal-btn-cancel:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--muted);
+}
+
+.modal-btn-save {
+  background: var(--accent-22);
+  color: var(--accent);
+  border: 1px solid var(--accent-55);
+}
+
+.modal-btn-save:hover:not(:disabled) {
+  background: var(--accent-33);
+  border-color: var(--accent-66);
+}

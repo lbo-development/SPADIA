@@ -95,9 +95,9 @@ function PlanModal({ initial, siteOptions, installOptions, userOptions, onSave, 
       title={initial?.id ? 'Modifier le plan' : 'Nouveau plan'}
       onClose={onClose} maxWidth={520}
       footer={
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button type="button" style={btn(C.muted, true)} onClick={onClose}>Annuler</button>
-          <button type="button" disabled={saving || deletingSvg} style={btn(C.accent)} onClick={submit as unknown as React.MouseEventHandler}>{saving ? 'Enregistrement…' : 'Enregistrer'}</button>
+        <div className="modal-footer">
+          <button type="button" className="modal-btn modal-btn-cancel" onClick={onClose}>Annuler</button>
+          <button type="button" className="modal-btn modal-btn-save" disabled={saving || deletingSvg} onClick={submit as unknown as React.MouseEventHandler}>{saving ? <><SpinnerIcon /> Enregistrement…</> : 'Enregistrer'}</button>
         </div>
       }
     >
@@ -174,7 +174,9 @@ export default function PlansPage() {
   const [siteSort,       setSiteSort]       = useState<'asc' | 'desc' | null>(null);
 
   const [planModal,    setPlanModal]    = useState<{ mode: 'create' | 'edit'; plan?: Plan } | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<Plan | null>(null);
+  const [deleteTarget,       setDeleteTarget]       = useState<Plan | null>(null);
+  const [deleteStats,        setDeleteStats]        = useState<{ calqueCount: number; pointCount: number } | null>(null);
+  const [deleteStatsLoading, setDeleteStatsLoading] = useState(false);
 
   const [reorderModal, setReorderModal] = useState(false);
   const [reorderList,  setReorderList]  = useState<Plan[]>([]);
@@ -225,10 +227,28 @@ export default function PlansPage() {
     await loadPlans();
   }
 
+  async function requestDelete(plan: Plan) {
+    setDeleteTarget(plan);
+    setDeleteStats(null);
+    setDeleteStatsLoading(true);
+    try {
+      const { data: calques } = await db.listCalques(plan.id);
+      const calqueList = calques ?? [];
+      const pointsResults = await Promise.all(calqueList.map(c => db.listPoints(c.id)));
+      const pointCount = pointsResults.reduce((acc, r) => acc + (r.data ?? []).length, 0);
+      setDeleteStats({ calqueCount: calqueList.length, pointCount });
+    } catch {
+      setDeleteStats({ calqueCount: 0, pointCount: 0 });
+    } finally {
+      setDeleteStatsLoading(false);
+    }
+  }
+
   async function confirmDelete() {
     if (!deleteTarget) return;
     await db.remove('plans', deleteTarget.id);
     setDeleteTarget(null);
+    setDeleteStats(null);
     await loadPlans();
   }
 
@@ -330,7 +350,7 @@ export default function PlansPage() {
             plan={p}
             canWrite={canWrite}
             onEdit={() => setPlanModal({ mode: 'edit', plan: p })}
-            onDelete={() => setDeleteTarget(p)}
+            onDelete={() => requestDelete(p)}
             onUploadSvg={uploadSvgForPlan(p)}
           />
         ))}
@@ -352,15 +372,23 @@ export default function PlansPage() {
         />
       )}
       {deleteTarget && (
-        <Modal title="Confirmation" onClose={() => setDeleteTarget(null)}
+        <Modal title="Confirmation" onClose={() => { setDeleteTarget(null); setDeleteStats(null); }}
           footer={
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button style={btn(C.muted, true)} onClick={() => setDeleteTarget(null)}>Annuler</button>
-              <button style={btn(C.danger)} onClick={confirmDelete}>Supprimer</button>
+              <button style={btn(C.muted, true)} onClick={() => { setDeleteTarget(null); setDeleteStats(null); }}>Annuler</button>
+              <button style={btn(C.danger)} onClick={confirmDelete} disabled={deleteStatsLoading}>Supprimer</button>
             </div>
           }
         >
-          <p style={{ margin: 0, fontSize: 14, color: C.text }}>{`Supprimer le plan « ${deleteTarget.nom} » et tous ses calques ?`}</p>
+          {deleteStatsLoading ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: C.muted }}><SpinnerIcon /> Chargement…</div>
+          ) : deleteStats && (deleteStats.calqueCount > 0 || deleteStats.pointCount > 0) ? (
+            <p style={{ margin: 0, fontSize: 14, color: C.text }}>
+              {`Supprimer le plan « ${deleteTarget.nom} » et ses ${deleteStats.calqueCount} calque${deleteStats.calqueCount > 1 ? 's' : ''} (${deleteStats.pointCount} point${deleteStats.pointCount > 1 ? 's' : ''}) ?`}
+            </p>
+          ) : (
+            <p style={{ margin: 0, fontSize: 14, color: C.text }}>{`Supprimer le plan « ${deleteTarget.nom} » ?`}</p>
+          )}
         </Modal>
       )}
 

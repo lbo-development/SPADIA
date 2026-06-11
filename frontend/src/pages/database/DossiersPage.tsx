@@ -135,9 +135,9 @@ function DossierModal({
       onClose={onClose}
       maxWidth={520}
       footer={
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button type="button" style={btn(C.muted, true)} onClick={onClose}>Annuler</button>
-          <button type="submit" form="dossier-form" disabled={saving} style={btn(C.accent)}>{saving ? 'Enregistrement…' : 'Enregistrer'}</button>
+        <div className="modal-footer">
+          <button type="button" className="modal-btn modal-btn-cancel" onClick={onClose}>Annuler</button>
+          <button type="submit" form="dossier-form" className="modal-btn modal-btn-save" disabled={saving}>{saving ? <><SpinnerIcon /> Enregistrement…</> : 'Enregistrer'}</button>
         </div>
       }
     >
@@ -217,9 +217,9 @@ function FichierModal({ fichier, onSave, onClose }: {
       onClose={onClose}
       maxWidth={520}
       footer={
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button type="button" style={btn(C.muted, true)} onClick={onClose}>Annuler</button>
-          <button type="submit" form="fichier-form" disabled={saving} style={btn(C.accent)}>{saving ? 'Enregistrement…' : 'Enregistrer'}</button>
+        <div className="modal-footer">
+          <button type="button" className="modal-btn modal-btn-cancel" onClick={onClose}>Annuler</button>
+          <button type="submit" form="fichier-form" className="modal-btn modal-btn-save" disabled={saving}>{saving ? <><SpinnerIcon /> Enregistrement…</> : 'Enregistrer'}</button>
         </div>
       }
     >
@@ -661,7 +661,9 @@ export default function DossiersPage() {
   const [siteSort,       setSiteSort]       = useState<'asc' | 'desc' | null>(null);
 
   const [dossierModal, setDossierModal] = useState<{ mode: 'create' | 'edit'; dossier?: Dossier } | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<Dossier | null>(null);
+  const [deleteTarget,       setDeleteTarget]       = useState<Dossier | null>(null);
+  const [deleteStats,        setDeleteStats]        = useState<{ fichierCount: number } | null>(null);
+  const [deleteStatsLoading, setDeleteStatsLoading] = useState(false);
 
   const [reorderModal, setReorderModal] = useState(false);
   const [reorderList,  setReorderList]  = useState<Dossier[]>([]);
@@ -728,10 +730,25 @@ export default function DossiersPage() {
     await loadDossiers();
   }
 
+  async function requestDelete(dossier: Dossier) {
+    setDeleteTarget(dossier);
+    setDeleteStats(null);
+    setDeleteStatsLoading(true);
+    try {
+      const { data } = await db.listFichiersPdf(dossier.id);
+      setDeleteStats({ fichierCount: (data ?? []).length });
+    } catch {
+      setDeleteStats({ fichierCount: 0 });
+    } finally {
+      setDeleteStatsLoading(false);
+    }
+  }
+
   async function confirmDelete() {
     if (!deleteTarget) return;
     await db.remove('dossiers', deleteTarget.id);
     setDeleteTarget(null);
+    setDeleteStats(null);
     await loadDossiers();
   }
 
@@ -857,7 +874,7 @@ export default function DossiersPage() {
             dossier={d}
             canWrite={canWrite}
             onEdit={() => setDossierModal({ mode: 'edit', dossier: d })}
-            onDelete={() => setDeleteTarget(d)}
+            onDelete={() => requestDelete(d)}
             onAddFile={uploadPdfForDossier(d)}
           />
         ))}
@@ -876,16 +893,24 @@ export default function DossiersPage() {
       {deleteTarget && (
         <Modal
           title="Confirmation"
-          onClose={() => setDeleteTarget(null)}
+          onClose={() => { setDeleteTarget(null); setDeleteStats(null); }}
           maxWidth={400}
           footer={
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button style={btn(C.muted, true)} onClick={() => setDeleteTarget(null)}>Annuler</button>
-              <button style={btn(C.danger)} onClick={confirmDelete}>Supprimer</button>
+              <button style={btn(C.muted, true)} onClick={() => { setDeleteTarget(null); setDeleteStats(null); }}>Annuler</button>
+              <button style={btn(C.danger)} onClick={confirmDelete} disabled={deleteStatsLoading}>Supprimer</button>
             </div>
           }
         >
-          <p style={{ margin: 0, fontSize: 14, color: C.text }}>{`Supprimer le dossier « ${deleteTarget.nom} » et tous ses fichiers ?`}</p>
+          {deleteStatsLoading ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: C.muted }}><SpinnerIcon /> Chargement…</div>
+          ) : deleteStats && deleteStats.fichierCount > 0 ? (
+            <p style={{ margin: 0, fontSize: 14, color: C.text }}>
+              {`Supprimer le dossier « ${deleteTarget.nom} » et ses ${deleteStats.fichierCount} fichier${deleteStats.fichierCount > 1 ? 's' : ''} ?`}
+            </p>
+          ) : (
+            <p style={{ margin: 0, fontSize: 14, color: C.text }}>{`Supprimer le dossier « ${deleteTarget.nom} » ?`}</p>
+          )}
         </Modal>
       )}
 

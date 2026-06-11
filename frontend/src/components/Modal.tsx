@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useState, useRef } from 'react';
 import { C } from '@/constants/colors';
 
 export type ModalProps = {
@@ -9,9 +10,34 @@ export type ModalProps = {
   footer?: ReactNode;
   maxWidth?: number;
   error?: string;
+  draggable?: boolean;
 };
 
-export function Modal({ title, icon, onClose, children, footer, maxWidth = 520, error }: ModalProps) {
+export function Modal({ title, icon, onClose, children, footer, maxWidth = 520, error, draggable = false }: ModalProps) {
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const dragRef = useRef<{ startX: number; startY: number; ox: number; oy: number } | null>(null);
+
+  const onHeaderMouseDown = draggable ? (e: React.MouseEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    e.preventDefault();
+    dragRef.current = { startX: e.clientX, startY: e.clientY, ox: offset.x, oy: offset.y };
+    document.body.style.cursor = 'grabbing';
+    document.body.style.userSelect = 'none';
+    const onMove = (ev: MouseEvent) => {
+      if (!dragRef.current) return;
+      setOffset({ x: dragRef.current.ox + ev.clientX - dragRef.current.startX, y: dragRef.current.oy + ev.clientY - dragRef.current.startY });
+    };
+    const onUp = () => {
+      dragRef.current = null;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  } : undefined;
+
   return (
     <div
       style={{
@@ -32,14 +58,20 @@ export function Modal({ title, icon, onClose, children, footer, maxWidth = 520, 
           background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16,
           width: '100%', maxWidth, maxHeight: '90vh', display: 'flex', flexDirection: 'column',
           boxShadow: '0 24px 64px rgba(0,0,0,0.35)',
+          transform: draggable ? `translate(${offset.x}px, ${offset.y}px)` : undefined,
         }}
         onClick={e => e.stopPropagation()}
       >
         {/* En-tête */}
-        <div style={{
-          padding: '16px 22px', borderBottom: `1px solid ${C.border}`,
-          display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0,
-        }}>
+        <div
+          onMouseDown={onHeaderMouseDown}
+          style={{
+            padding: '16px 22px', borderBottom: `1px solid ${C.border}`,
+            display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0,
+            cursor: draggable ? 'grab' : 'default',
+            borderRadius: '16px 16px 0 0',
+          }}
+        >
           {icon && (
             <div style={{
               width: 34, height: 34, borderRadius: 9, background: C.accent18,
