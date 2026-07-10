@@ -183,7 +183,7 @@ function MarkerPickerDropdown({ markers, value, onChange }: {
 type CalqueGeoForm = {
   nom: string; description: string; is_downloadable: boolean;
   niveau_accreditation: number; zoom_min: number | null; zoom_max: number | null;
-  icone_path: string | null; couleur: string;
+  icone_path: string | null; icone_size: number; couleur: string;
   template_champs: Record<string, unknown> | null;
   owner_id: string | null;
 };
@@ -204,6 +204,7 @@ function CalqueGeoModal({ initial, siteId, siteNom, onSave, onClose }: {
     zoom_min:             initial?.zoom_min  ?? (isEdit ? null : 1),
     zoom_max:             initial?.zoom_max  ?? (isEdit ? null : 24),
     icone_path:           initial?.icone_path ?? null,
+    icone_size:           initial?.icone_size ?? 20,
     couleur:              initial?.couleur ?? '',
     template_champs:      initial?.template_champs ?? null,
     owner_id:             initial?.owner_id ?? null,
@@ -301,12 +302,21 @@ function CalqueGeoModal({ initial, siteId, siteNom, onSave, onClose }: {
             </select>
           </div>
 
-          {/* Icône + Couleur */}
+          {/* Icône + Taille + Couleur */}
           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <label style={{ fontSize: 12, color: C.muted, display: 'block', marginBottom: 5 }}>Icône</label>
               <MarkerPickerDropdown markers={markers} value={form.icone_path}
                 onChange={(path, couleur) => setForm(f => ({ ...f, icone_path: path, couleur: couleur ?? f.couleur }))} />
+            </div>
+            <div style={{ flexShrink: 0, width: 80 }}>
+              <label style={{ fontSize: 12, color: C.muted, display: 'block', marginBottom: 5 }}>Taille (px)</label>
+              <input
+                type="number" min={8} max={128} step={4}
+                value={form.icone_size}
+                onChange={e => setForm(f => ({ ...f, icone_size: Math.max(8, Math.min(128, parseInt(e.target.value) || 20)) }))}
+                style={{ ...inp, width: '100%' }}
+              />
             </div>
             <div style={{ flexShrink: 0 }}>
               <label style={{ fontSize: 12, color: C.muted, display: 'block', marginBottom: 5 }}>Couleur</label>

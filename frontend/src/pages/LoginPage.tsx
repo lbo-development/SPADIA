@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { C } from '@/constants/colors';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { apiClient } from '@/api/client';
+import { extractErrorMessage } from '@/lib/errors';
 
 function IconLock() {
   return (
@@ -21,6 +23,25 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPwd,  setShowPwd]  = useState(false);
   const [error,    setError]    = useState<string | null>(null);
+
+  // ── Mot de passe oublié ──────────────────────────────────────────────────
+  const [forgotMode,    setForgotMode]    = useState(false);
+  const [forgotEmail,   setForgotEmail]   = useState('');
+  const [forgotSending, setForgotSending] = useState(false);
+  const [forgotSent,    setForgotSent]    = useState(false);
+  const [forgotError,   setForgotError]   = useState<string | null>(null);
+
+  async function handleForgot(e: React.FormEvent) {
+    e.preventDefault();
+    if (!forgotEmail.trim()) return;
+    setForgotSending(true); setForgotError(null);
+    try {
+      await apiClient.post('/auth/forgot-password', { email: forgotEmail.trim() });
+      setForgotSent(true);
+    } catch (err) {
+      setForgotError(extractErrorMessage(err));
+    } finally { setForgotSending(false); }
+  }
 
   async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -58,6 +79,37 @@ export default function LoginPage() {
         {/* carte */}
         <div style={s.card}>
           {sessionMsg && <div style={s.banner}>⚠ {sessionMsg}</div>}
+
+          {forgotMode ? (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button type="button" onClick={() => { setForgotMode(false); setForgotSent(false); setForgotError(null); setForgotEmail(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, padding: 0, display: 'flex', alignItems: 'center' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
+                <h1 style={s.title}>Mot de passe oublié</h1>
+              </div>
+              {forgotSent ? (
+                <div style={s.successBanner}>✓ Si cet email est enregistré, un lien de réinitialisation vous a été envoyé. Vérifiez votre boîte de réception.</div>
+              ) : (
+                <form onSubmit={handleForgot} noValidate style={s.form}>
+                  <div style={s.field}>
+                    <label htmlFor="forgot-email" style={s.label}>Adresse e-mail</label>
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                      <svg style={s.fieldIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+                      </svg>
+                      <input id="forgot-email" type="email" placeholder="prenom.nom@domaine.fr" value={forgotEmail} disabled={forgotSending} onChange={e => setForgotEmail(e.target.value)} style={s.textInput} autoFocus />
+                    </div>
+                  </div>
+                  {forgotError && <div style={s.err}>✕ {forgotError}</div>}
+                  <button type="submit" disabled={!forgotEmail.trim() || forgotSending} className="btn-primary" style={{ ...s.btn, opacity: forgotEmail.trim() && !forgotSending ? 1 : 0.45, cursor: forgotEmail.trim() && !forgotSending ? 'pointer' : 'not-allowed' }}>
+                    {forgotSending ? 'Envoi…' : 'Envoyer le lien'}
+                  </button>
+                </form>
+              )}
+            </>
+          ) : (
+          <>
           <h1 style={s.title}>Connexion</h1>
 
           <form onSubmit={handleSubmit} noValidate autoComplete="off" style={s.form}>
@@ -120,6 +172,11 @@ export default function LoginPage() {
               {loading ? 'Connexion…' : 'Se connecter'}
             </button>
           </form>
+          <button type="button" onClick={() => { setForgotMode(true); setForgotEmail(email); }} style={s.forgotLink}>
+            Mot de passe oublié ?
+          </button>
+          </>
+          )}
         </div>
 
         <footer style={s.footer}>◆ Session sécurisée — 8h max · Inactivité : 30 min</footer>
@@ -149,5 +206,7 @@ const s: Record<string, React.CSSProperties> = {
   eye:       { position: 'absolute', right: 10, background: 'none', border: 'none', cursor: 'pointer', color: C.muted, padding: 4, display: 'flex', alignItems: 'center' },
   err:       { background: C.errorBg, border: `1px solid ${C.error44}`, borderRadius: 'var(--r-md)' as unknown as number, padding: '10px 12px', fontSize: 12, color: C.error },
   btn:       { width: '100%', height: 44, background: C.accent, border: 'none', borderRadius: 'var(--r-lg)' as unknown as number, color: '#fff', fontSize: 14, fontWeight: 600, letterSpacing: '0.01em', marginTop: 4, cursor: 'pointer', boxShadow: 'var(--shadow-accent)' },
-  footer:    { textAlign: 'center', fontSize: 11, color: C.muted },
+  footer:       { textAlign: 'center', fontSize: 11, color: C.muted },
+  forgotLink:   { background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 12, textDecoration: 'underline', textAlign: 'center', padding: '4px 0', marginTop: -8 },
+  successBanner:{ background: 'rgba(16,124,16,0.12)', border: '1px solid rgba(16,124,16,0.4)', borderRadius: 'var(--r-md)' as unknown as number, padding: '12px 14px', fontSize: 13, color: '#107C10' },
 };

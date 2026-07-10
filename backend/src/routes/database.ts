@@ -271,7 +271,7 @@ function flattenPlan(row: Record<string, unknown>): Record<string, unknown> {
     proposedby_nom:     (proposedby as { nom?: string } | null)?.nom ?? '',
     validateur_nom:     (validateur as { nom?: string } | null)?.nom ?? '',
     svg_public_url:     svgPath
-      ? supabaseAdmin.storage.from('Documents').getPublicUrl(svgPath).data.publicUrl
+      ? supabaseAdmin.storage.from('documents_services').getPublicUrl(svgPath).data.publicUrl
       : null,
   };
 }
@@ -361,7 +361,7 @@ router.delete('/plans/:id', authMiddleware, requireRole(adminAll),
 
 // ── Calques — routes dédiées (jointures plan + user_profiles) ───────────────
 
-const CALQUE_SELECT = `id, site_id, installation_id, plan_id, nom, description, type, niveau_accreditation, icone_path, couleur, template_champs, zoom_min, zoom_max, is_downloadable, "order", owner_id, validateur_id, date_validation, created_at, updated_at, sites!calques_site_id_fkey(nom), installations!calques_installation_id_fkey(nom), plans!calques_plan_id_fkey(nom, sites!plans_site_id_fkey(nom), installations!plans_installation_id_fkey(nom)), owner:user_profiles!calques_owner_id_fkey(nom), validateur:user_profiles!calques_validateur_id_fkey(nom)`;
+const CALQUE_SELECT = `id, site_id, installation_id, plan_id, nom, description, type, niveau_accreditation, icone_path, icone_size, couleur, template_champs, zoom_min, zoom_max, is_downloadable, "order", owner_id, validateur_id, date_validation, created_at, updated_at, sites!calques_site_id_fkey(nom), installations!calques_installation_id_fkey(nom), plans!calques_plan_id_fkey(nom, sites!plans_site_id_fkey(nom), installations!plans_installation_id_fkey(nom)), owner:user_profiles!calques_owner_id_fkey(nom), validateur:user_profiles!calques_validateur_id_fkey(nom)`;
 const TYPES_CALQUE  = ['geographique', 'non_geographique'];
 
 function flattenCalque(row: Record<string, unknown>): Record<string, unknown> {
@@ -382,7 +382,7 @@ function flattenCalque(row: Record<string, unknown>): Record<string, unknown> {
     plan_nom:         plan?.nom ?? '',
     owner_nom:        (owner      as { nom?: string } | null)?.nom ?? '',
     validateur_nom:   (validateur as { nom?: string } | null)?.nom ?? '',
-    icone_public_url: iPath ? supabaseAdmin.storage.from('Documents').getPublicUrl(iPath).data.publicUrl : '/defmarker.svg',
+    icone_public_url: iPath ? supabaseAdmin.storage.from('documents_services').getPublicUrl(iPath).data.publicUrl : '/defmarker.svg',
   };
 }
 
@@ -413,7 +413,7 @@ router.get('/calques', authMiddleware, requireRole(allRoles),
 router.post('/calques', authMiddleware, requireRole(adminAll),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
-      const { plan_id, site_id, installation_id, nom, description, type, niveau_accreditation, icone_path, couleur, zoom_min, zoom_max, is_downloadable, template_champs, owner_id, validateur_id, date_validation } = req.body;
+      const { plan_id, site_id, installation_id, nom, description, type, niveau_accreditation, icone_path, icone_size, couleur, zoom_min, zoom_max, is_downloadable, template_champs, owner_id, validateur_id, date_validation } = req.body;
       if (!nom || !type || (!plan_id && !site_id)) {
         res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'nom, type et (plan_id ou site_id) sont requis.', details: null } });
         return;
@@ -430,6 +430,7 @@ router.post('/calques', authMiddleware, requireRole(adminAll),
         type:                 TYPES_CALQUE.includes(type) ? type : 'geographique',
         niveau_accreditation: clampCalqueAccred(niveau_accreditation),
         icone_path:           icone_path      || null,
+        icone_size:           icone_size != null ? Math.max(8, Math.min(128, parseInt(icone_size, 10))) : 20,
         couleur:              couleur         || null,
         template_champs:      template_champs ?? null,
         zoom_min:             zoom_min        ?? null,
@@ -564,14 +565,14 @@ router.post('/upload/svg', authMiddleware, requireRole(adminAll),
     // Chemin fixe par plan — upsert écrase le fichier précédent (annule et remplace)
     const storagePath = `Plans/${plan_id}/current.svg`;
     const { error: uploadError } = await supabaseAdmin.storage
-      .from('Documents')
+      .from('documents_services')
       .upload(storagePath, cleanBuffer, { contentType: 'image/svg+xml', upsert: true });
     if (uploadError) {
       logger.error({ err: uploadError, route: '[upload/svg]' }, 'Erreur');
       res.status(500).json({ error: { code: 'STORAGE_ERROR', message: "Erreur lors de l'upload SVG." } });
       return;
     }
-    const { data: { publicUrl } } = supabaseAdmin.storage.from('Documents').getPublicUrl(storagePath);
+    const { data: { publicUrl } } = supabaseAdmin.storage.from('documents_services').getPublicUrl(storagePath);
     const { width, height } = parseSvgDimensions(cleanBuffer);
     res.json({ url: publicUrl, path: storagePath, width, height });
   },
@@ -678,7 +679,7 @@ function flattenFichier(row: Record<string, unknown>): Record<string, unknown> {
     proposedby_nom:     (proposedby as { nom?: string } | null)?.nom ?? '',
     validateur_nom:     (validateur as { nom?: string } | null)?.nom ?? '',
     storage_public_url: storagePath
-      ? supabaseAdmin.storage.from('Documents').getPublicUrl(storagePath).data.publicUrl
+      ? supabaseAdmin.storage.from('documents_services').getPublicUrl(storagePath).data.publicUrl
       : null,
   };
 }
@@ -799,14 +800,14 @@ router.post('/upload/pdf', authMiddleware, requireRole(adminAll),
     const safeName = req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
     const storagePath = `Fichiers/${dossier_id}/${Date.now()}-${safeName}`;
     const { error: uploadError } = await supabaseAdmin.storage
-      .from('Documents')
+      .from('documents_services')
       .upload(storagePath, req.file.buffer, { contentType: 'application/pdf', upsert: false });
     if (uploadError) {
       logger.error({ err: uploadError, route: '[upload/pdf]' }, 'Erreur');
       res.status(500).json({ error: { code: 'STORAGE_ERROR', message: 'Erreur lors de l\'upload PDF.' } });
       return;
     }
-    const { data: { publicUrl } } = supabaseAdmin.storage.from('Documents').getPublicUrl(storagePath);
+    const { data: { publicUrl } } = supabaseAdmin.storage.from('documents_services').getPublicUrl(storagePath);
     res.json({ url: publicUrl, path: storagePath });
   },
 );
@@ -944,7 +945,7 @@ router.get('/markers', authMiddleware, requireRole(adminAll),
       if (error) throw error;
       const withUrls = (data ?? []).map(m => ({
         ...m,
-        public_url: supabaseAdmin.storage.from('Documents').getPublicUrl((m as { storage_path: string }).storage_path).data.publicUrl,
+        public_url: supabaseAdmin.storage.from('documents_services').getPublicUrl((m as { storage_path: string }).storage_path).data.publicUrl,
       }));
       res.json(withUrls);
     } catch (err) {
@@ -966,7 +967,7 @@ router.post('/markers', authMiddleware, requireRole(adminAll),
       const { data, error } = await supabase.from('markers').insert(insertData).select(MARKER_SELECT).single();
       if (error) throw error;
       const row = data as Record<string, unknown>;
-      res.status(201).json({ ...row, public_url: supabaseAdmin.storage.from('Documents').getPublicUrl(row.storage_path as string).data.publicUrl });
+      res.status(201).json({ ...row, public_url: supabaseAdmin.storage.from('documents_services').getPublicUrl(row.storage_path as string).data.publicUrl });
     } catch (err) {
       logger.error({ err: err, route: '[db/markers POST]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur création marker.', details: null } });
@@ -995,11 +996,11 @@ router.patch('/markers/:id', authMiddleware, requireRole(adminAll),
 
       // Supprimer l'ancien fichier si le chemin a changé
       if (storage_path && oldPath && storage_path !== oldPath) {
-        await supabaseAdmin.storage.from('Documents').remove([oldPath]);
+        await supabaseAdmin.storage.from('documents_services').remove([oldPath]);
       }
 
       const row = data as Record<string, unknown>;
-      res.json({ ...row, public_url: supabaseAdmin.storage.from('Documents').getPublicUrl(row.storage_path as string).data.publicUrl });
+      res.json({ ...row, public_url: supabaseAdmin.storage.from('documents_services').getPublicUrl(row.storage_path as string).data.publicUrl });
     } catch (err) {
       logger.error({ err: err, route: '[db/markers PATCH]' }, 'Erreur');
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur mise à jour marker.', details: null } });
@@ -1020,7 +1021,7 @@ router.delete('/markers/:id', authMiddleware, requireRole(adminAll),
 
       // Supprimer le fichier SVG du bucket
       if (storagePath) {
-        await supabaseAdmin.storage.from('Documents').remove([storagePath]);
+        await supabaseAdmin.storage.from('documents_services').remove([storagePath]);
       }
 
       res.status(204).send();
@@ -1066,13 +1067,13 @@ router.post('/upload/marker', authMiddleware, requireRole(adminAll),
     const safeName    = req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
     const storagePath = `Markers/${Date.now()}-${safeName}`;
     const { error: uploadError } = await supabaseAdmin.storage
-      .from('Documents').upload(storagePath, cleanBuffer, { contentType: 'image/svg+xml', upsert: false });
+      .from('documents_services').upload(storagePath, cleanBuffer, { contentType: 'image/svg+xml', upsert: false });
     if (uploadError) {
       logger.error({ err: uploadError, route: '[upload/marker]' }, 'Erreur');
       res.status(500).json({ error: { code: 'STORAGE_ERROR', message: "Erreur lors de l'upload du marker." } });
       return;
     }
-    const { data: { publicUrl } } = supabaseAdmin.storage.from('Documents').getPublicUrl(storagePath);
+    const { data: { publicUrl } } = supabaseAdmin.storage.from('documents_services').getPublicUrl(storagePath);
     const color = parseSvgColor(cleanBuffer);
     res.json({ url: publicUrl, path: storagePath, color });
   },
@@ -1097,7 +1098,7 @@ function flattenPV(row: Record<string, unknown>): Record<string, unknown> {
     dossier_nom:           (dossiers      as { nom?: string } | null)?.nom ?? '',
     plan_nom:              (plans         as { nom?: string } | null)?.nom ?? '',
     storage_temp_public_url: tempPath
-      ? supabaseAdmin.storage.from('Documents').getPublicUrl(tempPath).data.publicUrl
+      ? supabaseAdmin.storage.from('documents_services').getPublicUrl(tempPath).data.publicUrl
       : null,
   };
 }
@@ -1203,7 +1204,7 @@ router.post('/upload/pdf_temp', authMiddleware, requireRole(allRoles),
     const slug        = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const storagePath = `En_attente/${slug}/${safeName}`;
     const { error: uploadError } = await supabaseAdmin.storage
-      .from('Documents')
+      .from('documents_services')
       .upload(storagePath, req.file.buffer, { contentType: 'application/pdf', upsert: false });
     if (uploadError) {
       logger.error({ err: uploadError, route: '[upload/pdf_temp]' }, 'Erreur');
@@ -1230,7 +1231,7 @@ router.post('/upload/svg_temp', authMiddleware, requireRole(allRoles),
     const slug        = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const storagePath = `En_attente/${slug}/${safeName}`;
     const { error: uploadError } = await supabaseAdmin.storage
-      .from('Documents')
+      .from('documents_services')
       .upload(storagePath, cleanBuffer, { contentType: 'image/svg+xml', upsert: false });
     if (uploadError) {
       logger.error({ err: uploadError, route: '[upload/svg_temp]' }, 'Erreur');
@@ -1266,7 +1267,7 @@ router.post('/upload/avatar', authMiddleware, requireRole(adminApp),
     }
     const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
     const { error: uploadError } = await supabaseAdmin.storage
-      .from('Documents')
+      .from('documents_services')
       .upload(`avatar/${filename}`, req.file.buffer, { contentType: 'image/png', upsert: false });
     if (uploadError) {
       logger.error({ err: uploadError, route: '[upload/avatar]' }, 'Erreur');
@@ -1274,7 +1275,7 @@ router.post('/upload/avatar', authMiddleware, requireRole(adminApp),
       return;
     }
     const { data: { publicUrl } } = supabaseAdmin.storage
-      .from('Documents')
+      .from('documents_services')
       .getPublicUrl(`avatar/${filename}`);
     res.json({ url: publicUrl });
   },
@@ -1351,7 +1352,7 @@ router.delete('/points/:id', authMiddleware, requireRole([ROLES.ADMIN_APP, ROLES
         .from('photosFichiersPoints').select('storage_path').eq('point_id', req.params.id);
       if (photos && photos.length > 0) {
         const paths = (photos as { storage_path: string }[]).map(p => p.storage_path).filter(Boolean);
-        if (paths.length > 0) await supabaseAdmin.storage.from('Documents').remove(paths);
+        if (paths.length > 0) await supabaseAdmin.storage.from('documents_services').remove(paths);
       }
 
       // Supprime les enregistrements photos puis le point
@@ -1406,14 +1407,14 @@ router.post('/upload/photo', authMiddleware, requireRole(adminAll),
     const ext = extMap[detectedMime] ?? 'jpg';
     const storagePath = `Photos/${point_id}/${Date.now()}.${ext}`;
     const { error: uploadError } = await supabaseAdmin.storage
-      .from('Documents')
+      .from('documents_services')
       .upload(storagePath, req.file.buffer, { contentType: detectedMime, upsert: false });
     if (uploadError) {
       logger.error({ err: uploadError, route: '[upload/photo]' }, 'Erreur');
       res.status(500).json({ error: { code: 'STORAGE_ERROR', message: "Erreur upload image." } });
       return;
     }
-    const { data: { publicUrl } } = supabaseAdmin.storage.from('Documents').getPublicUrl(storagePath);
+    const { data: { publicUrl } } = supabaseAdmin.storage.from('documents_services').getPublicUrl(storagePath);
     const { data, error } = await supabase
       .from('photosFichiersPoints')
       .insert({
@@ -1451,7 +1452,7 @@ router.get('/photos', authMiddleware, requireRole(allRoles),
       const rows = (data ?? []).map((row: Record<string, unknown>) => ({
         ...row,
         public_url: row.storage_path
-          ? supabaseAdmin.storage.from('Documents').getPublicUrl(row.storage_path as string).data.publicUrl
+          ? supabaseAdmin.storage.from('documents_services').getPublicUrl(row.storage_path as string).data.publicUrl
           : null,
       }));
       res.json(rows);
@@ -1480,14 +1481,14 @@ router.post('/upload/fichier_point', authMiddleware, requireRole(adminAll),
     }
     const storagePath = `FichiersPoints/${point_id}/${Date.now()}.pdf`;
     const { error: uploadError } = await supabaseAdmin.storage
-      .from('Documents')
+      .from('documents_services')
       .upload(storagePath, req.file.buffer, { contentType: 'application/pdf', upsert: false });
     if (uploadError) {
       logger.error({ err: uploadError, route: '[upload/fichier_point]' }, 'Erreur');
       res.status(500).json({ error: { code: 'STORAGE_ERROR', message: 'Erreur upload PDF.' } });
       return;
     }
-    const { data: { publicUrl } } = supabaseAdmin.storage.from('Documents').getPublicUrl(storagePath);
+    const { data: { publicUrl } } = supabaseAdmin.storage.from('documents_services').getPublicUrl(storagePath);
     const { data, error } = await supabase
       .from('photosFichiersPoints')
       .insert({
@@ -1524,7 +1525,7 @@ router.patch('/photos/:id', authMiddleware, requireRole(adminAll),
       res.json({
         ...row,
         public_url: row.storage_path
-          ? supabaseAdmin.storage.from('Documents').getPublicUrl(row.storage_path as string).data.publicUrl
+          ? supabaseAdmin.storage.from('documents_services').getPublicUrl(row.storage_path as string).data.publicUrl
           : null,
       });
     } catch (err) {
@@ -1542,7 +1543,7 @@ router.delete('/photos/:id', authMiddleware, requireRole(adminAll),
       const storagePath = (photo as { storage_path?: string } | null)?.storage_path;
       const { error } = await supabase.from('photosFichiersPoints').delete().eq('id', req.params.id);
       if (error) throw error;
-      if (storagePath) await supabaseAdmin.storage.from('Documents').remove([storagePath]);
+      if (storagePath) await supabaseAdmin.storage.from('documents_services').remove([storagePath]);
       res.status(204).send();
     } catch (err) {
       logger.error({ err: err, route: '[db/photos DELETE]' }, 'Erreur');
@@ -1594,7 +1595,7 @@ router.get('/fichiers_calques', authMiddleware, requireRole(allRoles),
         return {
           ...f,
           storage_public_url: sp
-            ? supabaseAdmin.storage.from('Documents').getPublicUrl(sp).data.publicUrl
+            ? supabaseAdmin.storage.from('documents_services').getPublicUrl(sp).data.publicUrl
             : null,
           can_download: isOwnerAdmin || isPriv || f.is_downloadable === true,
         };
@@ -1680,7 +1681,7 @@ router.delete('/fichiers_calques/:id', authMiddleware, requireRole(allRoles),
       }
       const { error } = await supabase.from('fichiers_calques').delete().eq('id', req.params.id);
       if (error) throw error;
-      if (ex.storage_path) await supabaseAdmin.storage.from('Documents').remove([ex.storage_path]);
+      if (ex.storage_path) await supabaseAdmin.storage.from('documents_services').remove([ex.storage_path]);
       res.status(204).send();
     } catch (err) {
       logger.error({ err, route: '[db/fichiers_calques DELETE]' }, 'Erreur');
@@ -1704,15 +1705,15 @@ router.post('/upload/calque_pdf', authMiddleware, requireRole(allRoles),
     const safeName    = req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
     const storagePath = `FichiersCalques/${calque_id}/${Date.now()}-${safeName}`;
     const { error: upErr } = await supabaseAdmin.storage
-      .from('Documents').upload(storagePath, req.file.buffer, { contentType: 'application/pdf', upsert: false });
+      .from('documents_services').upload(storagePath, req.file.buffer, { contentType: 'application/pdf', upsert: false });
     if (upErr) { res.status(500).json({ error: { code: 'STORAGE_ERROR', message: 'Erreur upload PDF.' } }); return; }
-    const { data: { publicUrl } } = supabaseAdmin.storage.from('Documents').getPublicUrl(storagePath);
+    const { data: { publicUrl } } = supabaseAdmin.storage.from('documents_services').getPublicUrl(storagePath);
 
     // Remplacement d'un fichier existant
     if (fichier_id) {
       const { data: prev } = await supabase.from('fichiers_calques').select('storage_path').eq('id', fichier_id).single();
       const prevPath = (prev as { storage_path: string } | null)?.storage_path;
-      if (prevPath) await supabaseAdmin.storage.from('Documents').remove([prevPath]);
+      if (prevPath) await supabaseAdmin.storage.from('documents_services').remove([prevPath]);
       const { data, error } = await supabase.from('fichiers_calques')
         .update({ storage_path: storagePath })
         .eq('id', fichier_id).select(FICHIER_CALQUE_SELECT).single();

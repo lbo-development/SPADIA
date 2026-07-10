@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import rateLimit from 'express-rate-limit';
 import { supabase } from '../supabase/client';
+import { supabaseAdmin } from '../supabase/adminClient';
 import { authMiddleware, AuthenticatedRequest } from '../middlewares/auth';
 import { logger } from '../lib/logger';
 
@@ -126,6 +127,50 @@ router.post('/refresh', async (req: Request, res: Response): Promise<void> => {
   await supabase.from('user_profiles').update({ last_activity_at: new Date().toISOString() }).eq('id', profile.id);
 
   res.json({ jwt: refreshData.session.access_token, refresh_token: refreshData.session.refresh_token });
+});
+
+router.post('/forgot-password', async (req: Request, res: Response): Promise<void> => {
+  const { email } = req.body as { email?: string };
+  if (!email) {
+    res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Email requis.' } });
+    return;
+  }
+  const appUrl = process.env.FRONTEND_URL || process.env.APP_URL || 'http://localhost:5173';
+  const redirectTo = `${appUrl}/reset-password`;
+  try {
+    await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo });
+  } catch { /* ne pas révéler si l'email existe */ }
+  // Toujours 200 pour éviter l'énumération d'emails
+  res.status(200).json({ success: true });
+});
+
+router.post('/reset-password', async (req: Request, res: Response): Promise<void> => {
+  const { access_token, new_password } = req.body as { access_token?: string; new_password?: string };
+  if (!access_token || !new_password) {
+    res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Token et nouveau mot de passe requis.' } });
+    return;
+  }
+  if (new_password.length < 8) {
+    res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Le mot de passe doit contenir au moins 8 caractères.' } });
+    return;
+  }
+  try {
+    const { data: { user }, error: userError } = await supabase.auth.getUser(access_token);
+    if (userError || !user) {
+      res.status(401).json({ error: { code: 'INVALID_TOKEN', message: 'Lien invalide ou expiré. Demandez un nouveau lien de réinitialisation.' } });
+      return;
+    }
+    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(user.id, { password: new_password });
+    if (updateError) {
+      logger.error({ err: updateError, route: 'POST /auth/reset-password' }, 'Erreur mise à jour mot de passe');
+      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Impossible de mettre à jour le mot de passe.' } });
+      return;
+    }
+    res.status(200).json({ success: true });
+  } catch (err) {
+    logger.error({ err, route: 'POST /auth/reset-password' }, 'Erreur reset password');
+    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Erreur serveur.' } });
+  }
 });
 
 router.post('/logout', authMiddleware, async (req: AuthenticatedRequest, res: Response): Promise<void> => {

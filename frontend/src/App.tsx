@@ -1,8 +1,10 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useAuth } from '@/context/AuthContext';
 import { ROLES } from '@/constants/roles';
 import LoginPage             from '@/pages/LoginPage';
+import ResetPasswordPage     from '@/pages/ResetPasswordPage';
 import DataAccessPage        from '@/pages/DataAccessPage';
 import CartoPage             from '@/pages/CartoPage';
 import DatabaseLayout        from '@/pages/database/DatabaseLayout';
@@ -43,14 +45,30 @@ function ProtectedDatabaseRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function RecoveryRedirect() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  useEffect(() => {
+    const hash = window.location.hash.slice(1);
+    const params = new URLSearchParams(hash);
+    if (params.get('type') === 'recovery' && params.get('access_token')) {
+      navigate('/reset-password' + window.location.hash, { replace: true });
+    }
+  }, [location.pathname, navigate]);
+  return null;
+}
+
 export default function App() {
   const { isAuthenticated } = useAuth();
   return (
     <ErrorBoundary>
+    <RecoveryRedirect />
     <Routes>
       <Route path="/login" element={
         isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />
       } />
+
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
 
       <Route path="/" element={
         <ProtectedRoute><Navigate to="/dashboard" replace /></ProtectedRoute>

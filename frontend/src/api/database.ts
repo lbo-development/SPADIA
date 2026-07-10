@@ -15,6 +15,7 @@ export type Calque = {
   niveau_accreditation: number;
   icone_path: string | null;
   icone_public_url: string | null;
+  icone_size: number;
   couleur: string | null;
   template_champs: Record<string, unknown> | null;
   zoom_min: number | null;

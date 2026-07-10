@@ -640,21 +640,26 @@ export default function CartoPage() {
       const rawColor = calque?.couleur ?? null;
       const color    = safeColor(rawColor ?? '#333');
       const iconUrl  = calque?.icone_public_url;
+      const sz       = calque?.icone_size ?? 20;
       for (const p of pts) {
+        const isDraggablePlan = planMoveMode && calqueId === planSelCalqueId;
         const isSel   = p.id === planSelectedPoint?.id;
         const safeUrl = iconUrl ? safeCssUrl(iconUrl) : '';
         const iconHtml = safeUrl
           ? rawColor
-            ? `<div style="width:20px;height:20px;background-color:${color};-webkit-mask-image:url(${safeUrl});mask-image:url(${safeUrl});-webkit-mask-size:contain;mask-size:contain;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;"></div>`
-            : `<img src="${safeUrl}" style="width:20px;height:20px;object-fit:contain;display:block;" />`
+            ? `<div style="width:${sz}px;height:${sz}px;background-color:${color};-webkit-mask-image:url(${safeUrl});mask-image:url(${safeUrl});-webkit-mask-size:contain;mask-size:contain;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;"></div>`
+            : `<img src="${safeUrl}" style="width:${sz}px;height:${sz}px;object-fit:contain;display:block;" />`
           : `<div style="width:12px;height:12px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.4);"></div>`;
         const ring = isSel ? `<div style="position:absolute;inset:-5px;border-radius:50%;border:2px solid #e53e3e;pointer-events:none;"></div>` : '';
+        const inner = `<div style="position:relative;width:${sz}px;height:${sz}px;display:flex;align-items:center;justify-content:center;">${iconHtml}${ring}</div>`;
+        const grabRing = isDraggablePlan ? `<div style="position:absolute;inset:0;border:2px dashed ${color};border-radius:8px;pointer-events:none;opacity:0.7;"></div>` : '';
+        const containerSz = isDraggablePlan ? Math.max(sz + 24, 40) : sz;
         const icon = L.divIcon({
-          html: `<div style="position:relative;display:inline-flex;align-items:center;justify-content:center;pointer-events:none;">${iconHtml}${ring}</div>`,
+          html: `<div style="width:${containerSz}px;height:${containerSz}px;position:relative;display:flex;align-items:center;justify-content:center;pointer-events:none;">${inner}${grabRing}</div>`,
           className: '',
-          iconAnchor: [10, 10],
+          iconSize: [containerSz, containerSz],
+          iconAnchor: [Math.round(containerSz / 2), Math.round(containerSz / 2)],
         });
-        const isDraggablePlan = planMoveMode && calqueId === planSelCalqueId;
         const marker = L.marker([p.coord_y_ou_lat, p.coord_x_ou_lon], { icon, draggable: isDraggablePlan });
         marker.on('click', () => {
           if (planAddModeRef.current || planMoveModeRef.current) return;
@@ -695,17 +700,26 @@ export default function CartoPage() {
       const rawColor = calque?.couleur ?? null;
       const color    = safeColor(rawColor ?? C.accent);
       const iconUrl  = calque?.icone_public_url;
+      const sz       = calque?.icone_size ?? 20;
       for (const p of pts) {
+        const isDraggableGeo = geoMoveMode && calqueId === calquesActif;
         const isSel   = p.id === planSelectedPoint?.id;
         const safeUrl = iconUrl ? safeCssUrl(iconUrl) : '';
         const iconHtml = safeUrl
           ? rawColor
-            ? `<div style="width:20px;height:20px;background-color:${color};-webkit-mask-image:url(${safeUrl});mask-image:url(${safeUrl});-webkit-mask-size:contain;mask-size:contain;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;"></div>`
-            : `<img src="${safeUrl}" style="width:20px;height:20px;object-fit:contain;display:block;" />`
+            ? `<div style="width:${sz}px;height:${sz}px;background-color:${color};-webkit-mask-image:url(${safeUrl});mask-image:url(${safeUrl});-webkit-mask-size:contain;mask-size:contain;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;"></div>`
+            : `<img src="${safeUrl}" style="width:${sz}px;height:${sz}px;object-fit:contain;display:block;" />`
           : `<div style="width:12px;height:12px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.4);"></div>`;
         const ring = isSel ? `<div style="position:absolute;inset:-5px;border-radius:50%;border:2px solid #e53e3e;pointer-events:none;"></div>` : '';
-        const icon = L.divIcon({ html: `<div style="position:relative;display:inline-flex;align-items:center;justify-content:center;pointer-events:none;">${iconHtml}${ring}</div>`, className: '', iconAnchor: [10, 10] });
-        const isDraggableGeo = geoMoveMode && calqueId === calquesActif;
+        const inner = `<div style="position:relative;width:${sz}px;height:${sz}px;display:flex;align-items:center;justify-content:center;">${iconHtml}${ring}</div>`;
+        const grabRing = isDraggableGeo ? `<div style="position:absolute;inset:0;border:2px dashed ${color};border-radius:8px;pointer-events:none;opacity:0.7;"></div>` : '';
+        const containerSz = isDraggableGeo ? Math.max(sz + 24, 40) : sz;
+        const icon = L.divIcon({
+          html: `<div style="width:${containerSz}px;height:${containerSz}px;position:relative;display:flex;align-items:center;justify-content:center;pointer-events:none;">${inner}${grabRing}</div>`,
+          className: '',
+          iconSize: [containerSz, containerSz],
+          iconAnchor: [Math.round(containerSz / 2), Math.round(containerSz / 2)],
+        });
         const marker = L.marker([p.coord_y_ou_lat, p.coord_x_ou_lon], { icon, draggable: isDraggableGeo });
         marker.on('click', () => {
           if (geoAddModeRef.current || geoMoveModeRef.current) return;
